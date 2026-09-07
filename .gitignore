@@ -1,0 +1,67 @@
+# ─────────────────────────────────────────────────────────────
+#  macOS
+# ─────────────────────────────────────────────────────────────
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# ─────────────────────────────────────────────────────────────
+#  Agent skills — installed locally, never tracked
+#
+#  Reinstall with:  npx hyperframes skills update
+#  (.claude/skills/* are symlinks into .agents/skills/*)
+# ─────────────────────────────────────────────────────────────
+/.agents/
+/.claude/skills/
+/skills-lock.json
+
+# machine-local agent settings (permissions etc.)
+/.claude/settings.local.json
+
+# ─────────────────────────────────────────────────────────────
+#  HyperFrames CLI local state & caches
+#
+#  .hyperframes/ holds the registry catalog cache, animation maps,
+#  expanded prompts, cloud/lambda stack state, and preview proxies.
+# ─────────────────────────────────────────────────────────────
+.hyperframes/
+node_modules/
+
+# ─────────────────────────────────────────────────────────────
+#  Final deliverables
+# ─────────────────────────────────────────────────────────────
+renders/
+
+# ─────────────────────────────────────────────────────────────
+#  Intermediate / generated artifacts
+# ─────────────────────────────────────────────────────────────
+# proof frames + contact sheets from `hyperframes snapshot`
+snapshots/
+# Studio preview thumbnails
+.thumbnails/
+# whisper word-level transcript
+transcript.json
+*.log
+
+# Agent instructions stamped into each project by `hyperframes init` /
+# `skills update`. Pure derivatives of the skills above, and they churn on
+# every CLI upgrade — regenerated automatically, so not tracked.
+videos/*/AGENTS.md
+videos/*/CLAUDE.md
+
+# ─────────────────────────────────────────────────────────────
+#  Deliberately TRACKED (do not add ignore rules for these)
+# ─────────────────────────────────────────────────────────────
+#  index.html            the composition source — the actual work
+#  BRIEF.md              confirmed brief; `/hyperframes` resumes from it
+#  shot-plan.json        shot IR: beats, geometry, design decisions
+#  hyperframes.json      project config + registry manifest
+#  package.json          pinned CLI version (reproducible renders)
+#  meta.json             project id
+#  HANDOFF.md            session handoff notes
+#  assets/               user-supplied source assets
+#  .media/               media-use frozen assets + manifest.jsonl + index.md
+#                        (render inputs — tracking them keeps renders
+#                         reproducible without re-hitting any provider)
+#  compositions/         registry blocks & components added to the project

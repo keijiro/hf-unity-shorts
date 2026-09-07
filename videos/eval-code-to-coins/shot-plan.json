@@ -1,0 +1,157 @@
+{
+  "category": "asset-fusion",
+  "duration_s": 7,
+  "fps": 30,
+  "canvas": {
+    "w": 1024,
+    "h": 1024,
+    "aspect": "1:1"
+  },
+  "style": "schematic / diagrammatic. Pure black stage, two floating panels: a dark code-agent panel above, a simplified Bunny Blitz game diagram below. Flat vector game art (platform slabs, glyph bunny, gold coins) in the Bunny Blitz brand palette. Causal chain is the hero: type -> eval -> flight -> impact -> spawn -> count.",
+  "palette": [
+    "#000000",
+    "#0B0F16",
+    "#35D3F5",
+    "#100826",
+    "#4B1E9E",
+    "#1E9BF0",
+    "#FFC824",
+    "#E8A317",
+    "#FF2D96"
+  ],
+  "font": "system monospace (SF Mono/Menlo) for code, geometric sans for labels",
+  "beats": [
+    2.3,
+    3.4,
+    3.9,
+    5.35
+  ],
+  "export": "mov",
+  "asset_needs": [],
+  "block": null,
+  "customize": {
+    "borrowed_mechanic": "confetti component's seeded index-function particle values (deterministic per-index targets) reapplied to the coin ring burst"
+  },
+  "content": {
+    "data_type": "causal-event",
+    "affordance": "the game panel is the receiving surface; the bunny's standing point is the impact target and the centre of the spawn ring",
+    "element_positions": {
+      "agent_panel": [
+        96,
+        96,
+        832,
+        292
+      ],
+      "game_panel": [
+        96,
+        452,
+        832,
+        476
+      ],
+      "packet_start_center": [
+        400,
+        262
+      ],
+      "impact_center": [
+        512,
+        702
+      ],
+      "bunny_feet_y": 800,
+      "coin_ring": {
+        "center": [
+          416,
+          250
+        ],
+        "rx": 160,
+        "ry": 88,
+        "n": 8,
+        "angle_offset_deg": -67.5
+      },
+      "avoid": [
+        "HUD chip top-right of game panel",
+        "BUNNY BLITZ chip top-left of game panel"
+      ]
+    },
+    "derived_palette": [
+      "#4B1E9E",
+      "#1E9BF0",
+      "#FFC824",
+      "#E8A317",
+      "#FF2D96",
+      "#35D3F5"
+    ],
+    "connectors": [
+      "packet flight arc (x power1.inOut + y power2.in) with a 4-dot comet trail"
+    ],
+    "beats": [
+      {
+        "t": 0.0,
+        "what": "agent panel enters (y -44 -> 0), game panel follows at 0.20 — staggered reveal"
+      },
+      {
+        "t": 0.8,
+        "what": "line 1 types, 34 char spans revealed by display; the caret rides the frontier in flow"
+      },
+      {
+        "t": 1.62,
+        "what": "line 2 types (38 chars)"
+      },
+      {
+        "t": 2.32,
+        "what": "CAUSE: the 'unity eval' pill ignites cyan; the code block glows"
+      },
+      {
+        "t": 2.42,
+        "what": "the code collapses and leaves the layout"
+      },
+      {
+        "t": 2.54,
+        "what": "a glowing C# packet condenses where the code was"
+      },
+      {
+        "t": 2.76,
+        "what": "flight 0.64s: the packet arcs down-LEFT into the game panel (x power1.inOut + y power2.in), shrinking 1 -> 0.62, 4-dot comet trail"
+      },
+      {
+        "t": 3.4,
+        "what": "IMPACT: packet pops, cyan shockwave ring + flash, bunny squashes, panel recoils 9px, border flashes cyan, agent reports '✓ evaluated'"
+      },
+      {
+        "t": 3.52,
+        "what": "STILLNESS 0.38s — the flash decays, nothing else moves (dramatic comma)"
+      },
+      {
+        "t": 3.9,
+        "what": "CLIMAX: 8 coins burst from the hero and settle on the ring (back.out(1.4), stagger 0.05); gold spawn glow rises"
+      },
+      {
+        "t": 4.35,
+        "what": "sequenced UI life: HUD counts 0 -> 8 on a steps(8) proxy, one tick per coin, each coin pinging as it is counted"
+      },
+      {
+        "t": 5.15,
+        "what": "the total lands: HUD '8' pops to 1.16x, gold sweep runs the panel, agent appends '· 8 coins spawned'"
+      },
+      {
+        "t": 5.9,
+        "what": "final hold to 7.0s (editing handle)"
+      }
+    ],
+    "result_line": "agent panel shows '✓ evaluated' on the impact frame, then '· 8 coins spawned' when the count lands — so the report never precedes the effect"
+  },
+  "motion_notes": [
+    "single continuous scene — no cuts, so the Seam Law/ledger does not apply; motion-doctrine's causal-motion + stillness-before-climax + no-idle-wobble rules do",
+    "banned eases avoided: no bounce.out, no elastic.out",
+    "every phase owned by a sustained-motion route: staged reveals -> animated sequence -> sequenced UI life",
+    "no seeded randomness needed; all per-index values are pure functions of the coin index"
+  ],
+  "verify": {
+    "lint": "0 errors",
+    "check": "passed — layout 0/0, motion 0/0, contrast 78/78 WCAG AA",
+    "known_info_findings": [
+      "caret adjacency flagged as occlusion at t=1.17/1.94 (the caret sits in the next, display:none cell)",
+      "#game-inner 3.45px overflow at t=3.5 — the intentional impact recoil, clipped by #game"
+    ],
+    "immediateRender": "disabled timeline-wide: CSS is the authored t=0 state, so no later fromTo can stamp its from-vars into frame 0"
+  }
+}

@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1024, height=1024">
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        /* stage */
+        --stage: #000000;
+
+        /* agent side */
+        --agent-bg: #0b0f16;
+        --agent-bg-2: #0e141d;
+        --agent-line: rgba(120, 210, 245, 0.16);
+        --agent-chrome: #8b9bad;
+        --cyan: #35d3f5;
+        --cyan-dim: #6aa9bd;
+
+        /* code tokens */
+        --tk-key: #6cb3ea;
+        --tk-fn: #dcdcaa;
+        --tk-num: #b5cea8;
+        --tk-var: #9cdcfe;
+        --tk-punct: #b3c1d3;
+
+        /* bunny blitz side */
+        --game-bg: #100826;
+        --game-bg-2: #1a0d3a;
+        --purple: #4b1e9e;
+        --purple-lit: #7b4bd8;
+        --blue: #1e9bf0;
+        --blue-lit: #6fc8ff;
+        --yellow: #ffc824;
+        --gold: #e8a317;
+        --gold-lit: #ffd75e;
+        --gold-shine: #fff3c4;
+        --gold-rim: #a8710c;
+
+        --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+        --sans: Inter, system-ui, -apple-system, sans-serif;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1024px;
+        height: 1024px;
+        overflow: hidden;
+        background: var(--stage);
+      }
+      body {
+        font-family: var(--sans);
+      }
+
+      #stage {
+        position: relative;
+        width: 1024px;
+        height: 1024px;
+        background: var(--stage);
+      }
+      #scene {
+        position: absolute;
+        inset: 0;
+      }
+
+      /* ───────────────────── the coding agent ───────────────────── */
+
+      #agent {
+        position: absolute;
+        left: 96px;
+        top: 96px;
+        width: 832px;
+        height: 292px;
+        border: 1px solid var(--agent-line);
+        border-radius: 22px;
+        background: linear-gradient(180deg, var(--agent-bg-2), var(--agent-bg));
+        overflow: hidden;
+      }
+      #agent-head {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 62px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 0 22px;
+        border-bottom: 1px solid var(--agent-line);
+        background: rgba(255, 255, 255, 0.025);
+      }
+      .dot {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background: #313f4e;
+      }
+      #agent-title {
+        margin-left: 6px;
+        font-size: 19px;
+        font-weight: 600;
+        line-height: 40px;
+        letter-spacing: 0.02em;
+        color: var(--agent-chrome);
+      }
+      #eval-pill {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        height: 40px;
+        padding: 0 17px;
+        border: 1px solid var(--cyan-dim);
+        border-radius: 20px;
+        font-family: var(--mono);
+        font-size: 17px;
+        line-height: 36px;
+        letter-spacing: 0.04em;
+        color: var(--cyan-dim);
+        background: rgba(53, 211, 245, 0);
+      }
+      #eval-pill .tri {
+        width: 0;
+        height: 0;
+        border-left: 9px solid currentColor;
+        border-top: 6px solid transparent;
+        border-bottom: 6px solid transparent;
+      }
+
+      #code-wrap {
+        position: absolute;
+        left: 0;
+        top: 62px;
+        width: 100%;
+        height: 230px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 0 46px;
+      }
+      #code {
+        font-family: var(--mono);
+        font-size: 27px;
+        color: var(--tk-punct);
+      }
+      .line {
+        display: block;
+        height: 58px;
+        line-height: 58px;
+        white-space: pre;
+      }
+      .ch {
+        display: none;
+      }
+      .caret {
+        display: inline-block;
+        width: 13px;
+        height: 30px;
+        vertical-align: -4px;
+        background: var(--cyan);
+        opacity: 0;
+      }
+      .k {
+        color: var(--tk-key);
+      }
+      .v {
+        color: var(--tk-var);
+      }
+      .f {
+        color: var(--tk-fn);
+      }
+      .n {
+        color: var(--tk-num);
+      }
+      .p {
+        color: var(--tk-punct);
+      }
+      #result {
+        display: none;
+        font-family: var(--mono);
+        font-size: 25px;
+        line-height: 44px;
+        color: var(--agent-chrome);
+      }
+      #result-more {
+        display: none;
+      }
+      #result .ok {
+        color: #6ee7a0;
+        font-weight: 700;
+      }
+      #result .val {
+        color: var(--yellow);
+      }
+
+      /* ───────────────────── the code in flight ───────────────────── */
+
+      #packet {
+        position: absolute;
+        left: 470px;
+        top: 232px;
+        width: 300px;
+        height: 68px;
+        align-items: center;
+        gap: 14px;
+        padding: 0 18px;
+        border: 1.5px solid var(--cyan);
+        border-radius: 16px;
+        background: linear-gradient(180deg, #0e2733, #071a24);
+        box-shadow:
+          0 0 0 1px rgba(53, 211, 245, 0.25),
+          0 0 46px rgba(53, 211, 245, 0.42);
+        opacity: 0;
+        display: none;
+        z-index: 6;
+      }
+      #packet .badge {
+        flex: none;
+        height: 38px;
+        padding: 0 10px;
+        display: flex;
+        align-items: center;
+        border-radius: 8px;
+        background: var(--cyan);
+        color: #032028;
+        font-family: var(--mono);
+        font-size: 18px;
+        font-weight: 700;
+        line-height: 34px;
+      }
+      #packet .sig {
+        font-family: var(--mono);
+        font-size: 21px;
+        line-height: 44px;
+        color: #cbf1fc;
+        white-space: nowrap;
+      }
+      .trail {
+        position: absolute;
+        left: 607px;
+        top: 253px;
+        width: 26px;
+        height: 26px;
+        border-radius: 9px;
+        background: var(--cyan);
+        opacity: 0;
+        display: none;
+        z-index: 5;
+      }
+
+      /* ───────────────────── Bunny Blitz, schematic ───────────────────── */
+
+      #game {
+        position: absolute;
+        left: 96px;
+        top: 452px;
+        width: 832px;
+        height: 476px;
+        border: 2px solid var(--purple);
+        border-radius: 26px;
+        background:
+          radial-gradient(120% 90% at 50% 118%, var(--game-bg-2) 0%, transparent 62%),
+          var(--game-bg);
+        overflow: hidden;
+      }
+      #game-inner {
+        position: absolute;
+        inset: 0;
+      }
+
+      /* faint grid, so the panel reads as a diagram and not a screenshot */
+      #grid {
+        position: absolute;
+        inset: 0;
+        opacity: 0.5;
+        background-image:
+          linear-gradient(to right, rgba(123, 75, 216, 0.13) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(123, 75, 216, 0.13) 1px, transparent 1px);
+        background-size: 52px 52px;
+      }
+
+      .slab {
+        position: absolute;
+        border-radius: 12px;
+      }
+      .slab::before {
+        content: "";
+        position: absolute;
+        left: 8px;
+        right: 8px;
+        top: 5px;
+        height: 5px;
+        border-radius: 3px;
+        background: var(--edge);
+        opacity: 0.85;
+      }
+      #ground {
+        left: 40px;
+        top: 348px;
+        width: 752px;
+        height: 60px;
+        background: var(--purple);
+        --edge: var(--purple-lit);
+      }
+      #ledge-r {
+        left: 596px;
+        top: 250px;
+        width: 160px;
+        height: 38px;
+        background: var(--blue);
+        --edge: var(--blue-lit);
+      }
+      #ledge-l {
+        left: 76px;
+        top: 288px;
+        width: 124px;
+        height: 34px;
+        background: var(--blue);
+        --edge: var(--blue-lit);
+      }
+
+      #bb-chip {
+        position: absolute;
+        left: 30px;
+        top: 26px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        padding: 0 15px;
+        border-radius: 10px;
+        background: rgba(75, 30, 158, 0.62);
+        border: 1px solid rgba(123, 75, 216, 0.55);
+        font-size: 19px;
+        font-weight: 700;
+        line-height: 40px;
+        letter-spacing: 0.16em;
+        color: var(--yellow);
+      }
+
+      #hud {
+        position: absolute;
+        right: 30px;
+        top: 26px;
+        height: 72px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      #hud-coin {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 34% 30%, var(--gold-lit), var(--gold) 62%);
+        box-shadow: inset 0 0 0 2.5px var(--gold-rim);
+      }
+      #hud-num {
+        position: relative;
+        width: 34px;
+        height: 72px;
+      }
+      #hud-num-txt {
+        display: block;
+        width: 34px;
+        text-align: center;
+        font-family: var(--mono);
+        font-size: 34px;
+        font-weight: 700;
+        line-height: 72px;
+        color: var(--yellow);
+      }
+
+      /* the hero */
+      #bunny {
+        position: absolute;
+        left: 356px;
+        top: 192px;
+        width: 120px;
+        height: 160px;
+        transform-origin: 50% 100%;
+        z-index: 3;
+      }
+
+      /* impact + spawn fx */
+      #ring,
+      #ring2 {
+        position: absolute;
+        left: 416px;
+        top: 250px;
+        width: 120px;
+        height: 120px;
+        margin-left: -60px;
+        margin-top: -60px;
+        border-radius: 50%;
+        border: 4px solid var(--cyan);
+        opacity: 0;
+        visibility: hidden;
+        z-index: 4;
+      }
+      #ring2 {
+        border-color: var(--gold-lit);
+      }
+      #flash {
+        position: absolute;
+        left: 416px;
+        top: 250px;
+        width: 420px;
+        height: 420px;
+        margin-left: -210px;
+        margin-top: -210px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(53, 211, 245, 0.55), transparent 62%);
+        opacity: 0;
+        visibility: hidden;
+        z-index: 2;
+      }
+      #glow {
+        position: absolute;
+        left: 416px;
+        top: 250px;
+        width: 560px;
+        height: 340px;
+        margin-left: -280px;
+        margin-top: -170px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(255, 200, 36, 0.26), transparent 64%);
+        opacity: 0;
+        visibility: hidden;
+        z-index: 1;
+      }
+
+      .coin {
+        position: absolute;
+        width: 40px;
+        height: 40px;
+        margin-left: -20px;
+        margin-top: -20px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 34% 28%, var(--gold-lit), var(--gold) 58%, #c1830f 100%);
+        box-shadow:
+          inset 0 0 0 3px var(--gold-rim),
+          0 0 16px rgba(255, 200, 36, 0.35);
+        opacity: 0;
+        visibility: hidden;
+        z-index: 5;
+      }
+      .coin::after {
+        content: "";
+        position: absolute;
+        left: 11px;
+        top: 7px;
+        width: 9px;
+        height: 13px;
+        border-radius: 50%;
+        background: var(--gold-shine);
+        opacity: 0.8;
+      }
+
+      #sweep {
+        position: absolute;
+        left: -240px;
+        top: 0;
+        width: 200px;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 215, 94, 0.5), transparent);
+        mix-blend-mode: screen;
+        opacity: 0;
+        visibility: hidden;
+        z-index: 7;
+      }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-y17s" id="stage" data-composition-id="main" data-start="0" data-duration="7" data-width="1024" data-height="1024">
+      <div data-hf-id="hf-jhxe" id="scene" class="clip" data-start="0" data-duration="7" data-track-index="1">
+        <!-- ══════════════ coding agent ══════════════ -->
+        <div data-hf-id="hf-wa90" id="agent">
+          <div data-hf-id="hf-yokz" id="agent-head">
+            <span data-hf-id="hf-9gry" class="dot"></span><span data-hf-id="hf-zcc2" class="dot"></span><span data-hf-id="hf-zqn3" class="dot"></span>
+            <span data-hf-id="hf-ei9j" id="agent-title">coding agent</span>
+            <span data-hf-id="hf-vd0l" id="eval-pill"><span data-hf-id="hf-mt3k" class="tri"></span>unity eval</span>
+          </div>
+          <div data-hf-id="hf-s9kb" id="code-wrap">
+            <!-- character spans + carets are generated below, deterministically -->
+            <div data-hf-id="hf-c1o2" id="code"></div>
+            <div data-hf-id="hf-9ewv" id="result">
+              <span data-hf-id="hf-nd5k" class="ok">✓</span> evaluated<span data-hf-id="hf-nese" id="result-more">
+                · <span data-hf-id="hf-y73y" class="val">8</span> coins spawned</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════════════ the C# packet in flight ══════════════ -->
+        <div data-hf-id="hf-cmif" class="trail" id="t1"></div>
+        <div data-hf-id="hf-3ymk" class="trail" id="t2"></div>
+        <div data-hf-id="hf-4qad" class="trail" id="t3"></div>
+        <div data-hf-id="hf-ni02" class="trail" id="t4"></div>
+        <div data-hf-id="hf-f9vt" id="packet">
+          <span data-hf-id="hf-b4uo" class="badge">C#</span>
+          <span data-hf-id="hf-un70" class="sig">SpawnCoins(p, 8)</span>
+        </div>
+
+        <!-- ══════════════ Bunny Blitz, schematic ══════════════ -->
+        <div data-hf-id="hf-ak47" id="game">
+          <div data-hf-id="hf-7ujc" id="game-inner">
+            <div data-hf-id="hf-gs5t" id="grid"></div>
+            <div data-hf-id="hf-27c6" id="glow"></div>
+
+            <div data-hf-id="hf-ncti" class="slab" id="ledge-l"></div>
+            <div data-hf-id="hf-ow8w" class="slab" id="ledge-r"></div>
+            <div data-hf-id="hf-vw0n" class="slab" id="ground"></div>
+
+            <div data-hf-id="hf-hmg5" id="flash"></div>
+
+            <div data-hf-id="hf-3m4r" id="bunny">
+              <svg data-hf-id="hf-14sl" viewBox="0 0 120 160" width="120" height="160" aria-hidden="true">
+                <g data-hf-id="hf-vprb" stroke="#d8c9ef" stroke-width="2.5">
+                  <g data-hf-id="hf-h825" transform="rotate(-13 46 66)">
+                    <ellipse data-hf-id="hf-rh6j" cx="46" cy="42" rx="11.5" ry="34" fill="#ffffff" />
+                    <ellipse data-hf-id="hf-ubbt" cx="46" cy="42" rx="5" ry="24" fill="#ffc2de" stroke="none" />
+                  </g>
+                  <g data-hf-id="hf-pqfv" transform="rotate(13 74 66)">
+                    <ellipse data-hf-id="hf-g2e6" cx="74" cy="42" rx="11.5" ry="34" fill="#ffffff" />
+                    <ellipse data-hf-id="hf-gr36" cx="74" cy="42" rx="5" ry="24" fill="#ffc2de" stroke="none" />
+                  </g>
+                  <rect data-hf-id="hf-p2oc" x="33" y="96" width="54" height="60" rx="26" fill="#ffffff" />
+                  <circle data-hf-id="hf-ff2i" cx="60" cy="86" r="34" fill="#ffffff" />
+                </g>
+                <path data-hf-id="hf-182v" d="M60 46 L70 66 L60 62 L50 68 Z" fill="#ff2d96" />
+                <ellipse data-hf-id="hf-5n2g" cx="47" cy="88" rx="7.5" ry="9.5" fill="#35d3f5" />
+                <ellipse data-hf-id="hf-7m0f" cx="73" cy="88" rx="7.5" ry="9.5" fill="#35d3f5" />
+                <circle data-hf-id="hf-0d64" cx="49.5" cy="84.5" r="2.6" fill="#ffffff" />
+                <circle data-hf-id="hf-5qcj" cx="75.5" cy="84.5" r="2.6" fill="#ffffff" />
+                <ellipse data-hf-id="hf-b2mk" cx="60" cy="103" rx="5" ry="3.6" fill="#ff7bb0" />
+                <ellipse data-hf-id="hf-iiqp" cx="44" cy="153" rx="12" ry="6" fill="#ffffff" stroke="#d8c9ef" stroke-width="2.5" />
+                <ellipse data-hf-id="hf-v124" cx="76" cy="153" rx="12" ry="6" fill="#ffffff" stroke="#d8c9ef" stroke-width="2.5" />
+              </svg>
+            </div>
+
+            <div data-hf-id="hf-o6ns" class="coin" id="k0"></div>
+            <div data-hf-id="hf-oybl" class="coin" id="k1"></div>
+            <div data-hf-id="hf-swfm" class="coin" id="k2"></div>
+            <div data-hf-id="hf-wujn" class="coin" id="k3"></div>
+            <div data-hf-id="hf-9d24" class="coin" id="k4"></div>
+            <div data-hf-id="hf-a4px" class="coin" id="k5"></div>
+            <div data-hf-id="hf-e2ty" class="coin" id="k6"></div>
+            <div data-hf-id="hf-k8jr" class="coin" id="k7"></div>
+
+            <div data-hf-id="hf-m1rf" id="ring"></div>
+            <div data-hf-id="hf-pwcb" id="ring2"></div>
+
+            <div data-hf-id="hf-njif" id="bb-chip">BUNNY BLITZ</div>
+            <div data-hf-id="hf-i9xo" id="hud">
+              <div data-hf-id="hf-9vhm" id="hud-coin"></div>
+              <div data-hf-id="hf-1grn" id="hud-num"><span data-hf-id="hf-c9tv" id="hud-num-txt">0</span></div>
+            </div>
+
+            <div data-hf-id="hf-1yur" id="sweep"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        const q = (s) => document.querySelector(s);
+
+        /* ── the C# the agent evals, as coloured tokens ── */
+        const CODE = [
+          [
+            ["k", "var"],
+            ["p", " "],
+            ["v", "p"],
+            ["p", " = "],
+            ["v", "player"],
+            ["p", "."],
+            ["v", "transform"],
+            ["p", "."],
+            ["v", "position"],
+            ["p", ";"],
+          ],
+          [
+            ["f", "SpawnCoins"],
+            ["p", "("],
+            ["v", "p"],
+            ["p", ", "],
+            ["v", "radius"],
+            ["p", ": "],
+            ["n", "1.5f"],
+            ["p", ", "],
+            ["v", "count"],
+            ["p", ": "],
+            ["n", "8"],
+            ["p", ");"],
+          ],
+        ];
+
+        // one span per character, hidden with display:none so nothing hidden
+        // occupies layout — the caret then rides the frontier for free
+        const code = q("#code");
+        const lines = CODE.map((tokens) => {
+          const line = document.createElement("span");
+          line.className = "line";
+          const chars = [];
+          tokens.forEach(([cls, text]) => {
+            for (const c of text) {
+              const s = document.createElement("span");
+              s.className = "ch " + cls;
+              s.textContent = c;
+              line.appendChild(s);
+              chars.push(s);
+            }
+          });
+          const caret = document.createElement("span");
+          caret.className = "caret";
+          line.appendChild(caret);
+          code.appendChild(line);
+          return { chars, caret };
+        });
+        lines[0].at = 0.8;
+        lines[0].dur = 0.76;
+        lines[1].at = 1.62;
+        lines[1].dur = 0.66;
+
+        /* ── the coin ring around the hero (game-panel-local px) ── */
+        const RING = { cx: 416, cy: 250, rx: 160, ry: 88, n: 8, a0: -67.5 };
+        const coins = [];
+        for (let i = 0; i < RING.n; i++) {
+          const a = ((RING.a0 + i * (360 / RING.n)) * Math.PI) / 180;
+          const el = q("#k" + i);
+          // each coin starts at the hero's centre; GSAP x/y carries it to the ring
+          el.style.left = RING.cx + "px";
+          el.style.top = RING.cy + "px";
+          coins.push({ el, dx: RING.rx * Math.cos(a), dy: RING.ry * Math.sin(a) });
+        }
+
+        // CSS is the authored t=0 state for every element, so no fromTo may stamp
+        // its from-vars at build time — otherwise a later tween's start value
+        // (a 9px recoil, a lit caret, a 1.42x HUD) leaks into frame 0.
+        const tl = gsap.timeline({ paused: true, defaults: { immediateRender: false } });
+
+        /* ═══ 1. staged reveal — the two panels arrive ═══ */
+        tl.fromTo("#agent", { y: -44, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.6, ease: "power3.out" }, 0);
+        tl.fromTo("#game", { y: 52, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.6, ease: "power3.out" }, 0.2);
+
+        /* ═══ 2. the agent types ═══ */
+        lines.forEach((l) => {
+          tl.fromTo(l.caret, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.001 }, l.at);
+          tl.fromTo(
+            l.chars,
+            { display: "none" },
+            { display: "inline", duration: 0.001, stagger: l.dur / l.chars.length },
+            l.at
+          );
+          tl.fromTo(l.caret, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.001 }, l.at + l.dur + 0.03);
+        });
+        // the second caret stays lit over the eval beat, then goes out on send
+        tl.fromTo(lines[1].caret, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.001 }, 2.34);
+        tl.fromTo(lines[1].caret, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.001 }, 2.42);
+
+        /* ═══ 3. CAUSE — the eval pill ignites ═══ */
+        tl.fromTo(
+          "#eval-pill",
+          { backgroundColor: "rgba(53,211,245,0)", color: "#6aa9bd", borderColor: "#6aa9bd", scale: 1 },
+          {
+            backgroundColor: "rgba(53,211,245,1)",
+            color: "#032028",
+            borderColor: "#35d3f5",
+            scale: 1.14,
+            duration: 0.14,
+            ease: "power3.out",
+          },
+          2.32
+        );
+        tl.fromTo("#eval-pill", { scale: 1.14 }, { scale: 1, duration: 0.18, ease: "power2.inOut" }, 2.46);
+        tl.fromTo(
+          "#code",
+          { filter: "drop-shadow(0 0 0px rgba(53,211,245,0))" },
+          { filter: "drop-shadow(0 0 18px rgba(53,211,245,0.85))", duration: 0.2, ease: "power2.out" },
+          2.34
+        );
+
+        /* ═══ 4. the code condenses into a packet ═══ */
+        tl.fromTo("#code", { scale: 1, autoAlpha: 1 }, { scale: 0.8, autoAlpha: 0, duration: 0.12, ease: "power2.in" }, 2.42);
+        tl.fromTo("#code", { display: "block" }, { display: "none", duration: 0.001 }, 2.54);
+        tl.fromTo(
+          "#packet",
+          { display: "none", opacity: 0, scale: 0.55 },
+          { display: "flex", opacity: 1, scale: 1, duration: 0.2, ease: "back.out(2)" },
+          2.54
+        );
+
+        /* ═══ 5. flight — an arc, not a slide ═══ */
+        const FLY = { at: 2.76, dur: 0.64, dx: -108, dy: 436 };
+        tl.fromTo("#packet", { x: 0 }, { x: FLY.dx, duration: FLY.dur, ease: "power1.inOut" }, FLY.at);
+        tl.fromTo("#packet", { y: 0 }, { y: FLY.dy, duration: FLY.dur, ease: "power2.in" }, FLY.at);
+        tl.fromTo(
+          "#packet",
+          { rotation: 7, scale: 1, opacity: 1 },
+          { rotation: -6, scale: 0.62, opacity: 1, duration: FLY.dur, ease: "power1.in" },
+          FLY.at
+        );
+
+        // comet trail: the same arc, offset in time, decaying
+        [1, 2, 3, 4].forEach((n, i) => {
+          const sel = "#t" + n;
+          const lag = 0.055 * (i + 1);
+          const s = 1 - 0.16 * (i + 1);
+          tl.fromTo(sel, { display: "none", opacity: 0 }, { display: "block", opacity: 0, duration: 0.001 }, FLY.at + lag);
+          tl.fromTo(sel, { x: 0 }, { x: FLY.dx, duration: FLY.dur, ease: "power1.inOut" }, FLY.at + lag);
+          tl.fromTo(sel, { y: 0 }, { y: FLY.dy, duration: FLY.dur, ease: "power2.in" }, FLY.at + lag);
+          tl.fromTo(
+            sel,
+            { autoAlpha: 0.5 - i * 0.1, scale: s },
+            { autoAlpha: 0, scale: s * 0.4, duration: FLY.dur, ease: "power1.in" },
+            FLY.at + lag
+          );
+        });
+
+        /* ═══ 6. IMPACT — every reaction on the landing frame ═══ */
+        const HIT = 3.4;
+        tl.fromTo("#packet", { opacity: 1, scale: 0.62 }, { opacity: 0, scale: 0.28, duration: 0.1, ease: "power2.in" }, HIT);
+        tl.fromTo("#flash", { autoAlpha: 0, scale: 0.25 }, { autoAlpha: 1, scale: 1, duration: 0.12, ease: "power2.out" }, HIT);
+        tl.fromTo("#flash", { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.4, ease: "power2.in" }, HIT + 0.12);
+        tl.fromTo(
+          "#result",
+          { display: "none", opacity: 0, y: 14 },
+          { display: "block", opacity: 1, y: 0, duration: 0.32, ease: "power3.out" },
+          HIT
+        );
+        tl.fromTo("#ring", { autoAlpha: 0.95, scale: 0.2 }, { autoAlpha: 0, scale: 2.9, duration: 0.5, ease: "power2.out" }, HIT);
+        tl.fromTo("#bunny", { scaleX: 1, scaleY: 1 }, { scaleX: 1.16, scaleY: 0.8, duration: 0.08, ease: "power2.out" }, HIT);
+        tl.fromTo("#bunny", { scaleX: 1.16, scaleY: 0.8 }, { scaleX: 1, scaleY: 1, duration: 0.3, ease: "power2.out" }, HIT + 0.08);
+        tl.fromTo("#game-inner", { y: 0 }, { y: 9, duration: 0.06, ease: "power2.out" }, HIT);
+        tl.fromTo("#game-inner", { y: 9 }, { y: 0, duration: 0.26, ease: "power2.out" }, HIT + 0.06);
+        tl.fromTo("#game", { borderColor: "#4b1e9e" }, { borderColor: "#35d3f5", duration: 0.06, ease: "power1.out" }, HIT);
+        tl.fromTo("#game", { borderColor: "#35d3f5" }, { borderColor: "#4b1e9e", duration: 0.6, ease: "power2.out" }, HIT + 0.06);
+
+        /* ═══ 7. stillness before the climax — 0.38s of nothing ═══ */
+
+        /* ═══ 8. CLIMAX — the coins spawn on the ring ═══ */
+        const POP = 3.9;
+        tl.fromTo("#glow", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4, ease: "power2.out" }, POP);
+        tl.fromTo("#ring2", { autoAlpha: 0.8, scale: 0.25 }, { autoAlpha: 0, scale: 2.5, duration: 0.55, ease: "power2.out" }, POP);
+        coins.forEach((c, i) => {
+          tl.fromTo(
+            c.el,
+            { x: 0, y: 0, scale: 0.15, autoAlpha: 0 },
+            { x: c.dx, y: c.dy, scale: 1, autoAlpha: 1, duration: 0.5, ease: "back.out(1.4)" },
+            POP + i * 0.05
+          );
+        });
+
+        /* ═══ 9. sequenced UI life — the HUD counts them in ═══ */
+        const numTxt = q("#hud-num-txt");
+        const counter = { v: 0 };
+        const TICK0 = 4.35,
+          GAP = 0.09;
+        tl.to(
+          counter,
+          {
+            v: 8,
+            duration: 8 * GAP,
+            ease: "steps(8)",
+            onUpdate: () => {
+              numTxt.textContent = String(Math.round(counter.v));
+            },
+          },
+          TICK0
+        );
+        for (let i = 0; i < 8; i++) {
+          const at = TICK0 + (i + 1) * GAP;
+          tl.fromTo("#hud-coin", { scale: 1 }, { scale: 1.22, duration: 0.05, ease: "power2.out" }, at);
+          tl.fromTo("#hud-coin", { scale: 1.22 }, { scale: 1, duration: 0.06, ease: "power2.in" }, at + 0.05);
+          // the coin being counted answers back
+          tl.fromTo(coins[i].el, { scale: 1 }, { scale: 1.2, duration: 0.05, ease: "power2.out" }, at);
+          tl.fromTo(coins[i].el, { scale: 1.2 }, { scale: 1, duration: 0.06, ease: "power2.in" }, at + 0.05);
+        }
+
+        /* ═══ 10. the total lands ═══ */
+        const LAND = 5.15;
+        tl.fromTo("#hud-num", { scale: 1 }, { scale: 1.42, duration: 0.14, ease: "back.out(2.4)" }, LAND);
+        tl.fromTo("#hud-num", { scale: 1.42 }, { scale: 1.16, duration: 0.24, ease: "power2.inOut" }, LAND + 0.14);
+        tl.fromTo(
+          "#result-more",
+          { display: "none", opacity: 0 },
+          { display: "inline", opacity: 1, duration: 0.26, ease: "power2.out" },
+          LAND
+        );
+        tl.fromTo("#sweep", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.1, ease: "power1.out" }, LAND);
+        tl.fromTo("#sweep", { x: 0 }, { x: 1320, duration: 0.66, ease: "power2.inOut" }, LAND);
+        tl.fromTo("#sweep", { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.16, ease: "power1.in" }, LAND + 0.5);
+        tl.fromTo("#game", { borderColor: "#4b1e9e" }, { borderColor: "#ffc824", duration: 0.16, ease: "power2.out" }, LAND);
+        tl.fromTo("#game", { borderColor: "#ffc824" }, { borderColor: "#4b1e9e", duration: 0.55, ease: "power2.inOut" }, LAND + 0.2);
+
+        tl.seek(0);
+        window.__timelines["main"] = tl;
+      })();
+    </script>
+  </body>
+</html>

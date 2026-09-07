@@ -1,0 +1,40 @@
+# Normalize line endings on commit; let git sniff the rest.
+* text=auto eol=lf
+
+# ── Composition & project sources ────────────────────────────
+*.html   text eol=lf diff=html
+*.css    text eol=lf diff=css
+*.js     text eol=lf
+*.mjs    text eol=lf
+*.json   text eol=lf
+*.jsonl  text eol=lf
+*.md     text eol=lf
+*.svg    text eol=lf
+*.cube   text eol=lf
+.gitattributes text eol=lf
+.gitignore     text eol=lf
+
+# ── Binary media: no eol munging, no useless diffs ───────────
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.webp   binary
+*.avif   binary
+*.ico    binary
+*.mp4    binary
+*.mov    binary
+*.webm   binary
+*.m4v    binary
+*.mp3    binary
+*.wav    binary
+*.m4a    binary
+*.aac    binary
+*.ogg    binary
+*.flac   binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.otf    binary
+*.pdf    binary
+*.lottie binary
