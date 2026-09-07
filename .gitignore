@@ -59,8 +59,9 @@ videos/*/CLAUDE.md
 #  hyperframes.json      project config + registry manifest
 #  package.json          pinned CLI version (reproducible renders)
 #  meta.json             project id
-#  HANDOFF.md            session handoff notes
-#  assets/               user-supplied source assets
+#  assets/               render inputs the composition references
+#  tools/                scripts that regenerate those assets, plus the
+#                        hard-won notes on how to run them
 #  .media/               media-use frozen assets + manifest.jsonl + index.md
 #                        (render inputs — tracking them keeps renders
 #                         reproducible without re-hitting any provider)

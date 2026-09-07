@@ -10,6 +10,7 @@
 *.jsonl  text eol=lf
 *.md     text eol=lf
 *.svg    text eol=lf
+*.cs     text eol=lf
 *.cube   text eol=lf
 .gitattributes text eol=lf
 .gitignore     text eol=lf

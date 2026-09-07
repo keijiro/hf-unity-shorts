@@ -13,6 +13,10 @@
         --agent-bg: #0b0f16;
         --agent-bg-2: #0e141d;
         --agent-line: rgba(120, 210, 245, 0.16);
+        /* --agent-chrome and --cyan-dim are deliberately this bright: they are
+           the values that clear the WCAG AA contrast audit in `hyperframes check`
+           against --agent-bg. Darkening either one back down to something more
+           subdued brings the contrast errors straight back. */
         --agent-chrome: #8b9bad;
         --cyan: #35d3f5;
         --cyan-dim: #6aa9bd;
@@ -200,6 +204,11 @@
 
       /* ───────────────────── the code in flight ───────────────────── */
 
+      /* left 470 is not arbitrary: together with FLY.dx (-108) it keeps the whole
+         flight inside the x 470 -> 362 corridor, which is the only lane that
+         crosses neither the BUNNY BLITZ chip (top-left of #game) nor the HUD
+         (top-right). Move this left edge or FLY.dx and the layout audit starts
+         reporting occlusion against that text. */
       #packet {
         position: absolute;
         left: 470px;
@@ -377,12 +386,20 @@
       /* the hero */
       #bunny {
         position: absolute;
-        left: 356px;
-        top: 192px;
-        width: 120px;
-        height: 160px;
+        /* centred on the coin ring (cx 416) with the feet on 352, as before;
+           88x160 is the render's own 0.5525 aspect, so nothing is stretched */
+        left: 358px;
+        top: 142px;
+        width: 116px;
+        height: 210px;
         transform-origin: 50% 100%;
         z-index: 3;
+      }
+      #bunny img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        object-position: bottom center;
       }
 
       /* impact + spawn fx */
@@ -517,28 +534,13 @@
             <div data-hf-id="hf-hmg5" id="flash"></div>
 
             <div data-hf-id="hf-3m4r" id="bunny">
-              <svg data-hf-id="hf-14sl" viewBox="0 0 120 160" width="120" height="160" aria-hidden="true">
-                <g data-hf-id="hf-vprb" stroke="#d8c9ef" stroke-width="2.5">
-                  <g data-hf-id="hf-h825" transform="rotate(-13 46 66)">
-                    <ellipse data-hf-id="hf-rh6j" cx="46" cy="42" rx="11.5" ry="34" fill="#ffffff" />
-                    <ellipse data-hf-id="hf-ubbt" cx="46" cy="42" rx="5" ry="24" fill="#ffc2de" stroke="none" />
-                  </g>
-                  <g data-hf-id="hf-pqfv" transform="rotate(13 74 66)">
-                    <ellipse data-hf-id="hf-g2e6" cx="74" cy="42" rx="11.5" ry="34" fill="#ffffff" />
-                    <ellipse data-hf-id="hf-gr36" cx="74" cy="42" rx="5" ry="24" fill="#ffc2de" stroke="none" />
-                  </g>
-                  <rect data-hf-id="hf-p2oc" x="33" y="96" width="54" height="60" rx="26" fill="#ffffff" />
-                  <circle data-hf-id="hf-ff2i" cx="60" cy="86" r="34" fill="#ffffff" />
-                </g>
-                <path data-hf-id="hf-182v" d="M60 46 L70 66 L60 62 L50 68 Z" fill="#ff2d96" />
-                <ellipse data-hf-id="hf-5n2g" cx="47" cy="88" rx="7.5" ry="9.5" fill="#35d3f5" />
-                <ellipse data-hf-id="hf-7m0f" cx="73" cy="88" rx="7.5" ry="9.5" fill="#35d3f5" />
-                <circle data-hf-id="hf-0d64" cx="49.5" cy="84.5" r="2.6" fill="#ffffff" />
-                <circle data-hf-id="hf-5qcj" cx="75.5" cy="84.5" r="2.6" fill="#ffffff" />
-                <ellipse data-hf-id="hf-b2mk" cx="60" cy="103" rx="5" ry="3.6" fill="#ff7bb0" />
-                <ellipse data-hf-id="hf-iiqp" cx="44" cy="153" rx="12" ry="6" fill="#ffffff" stroke="#d8c9ef" stroke-width="2.5" />
-                <ellipse data-hf-id="hf-v124" cx="76" cy="153" rx="12" ry="6" fill="#ffffff" stroke="#d8c9ef" stroke-width="2.5" />
-              </svg>
+              <img
+                data-hf-id="hf-14sl"
+                src="assets/bunny-render.png"
+                width="442"
+                height="800"
+                alt=""
+              />
             </div>
 
             <div data-hf-id="hf-o6ns" class="coin" id="k0"></div>
@@ -641,6 +643,12 @@
         // CSS is the authored t=0 state for every element, so no fromTo may stamp
         // its from-vars at build time — otherwise a later tween's start value
         // (a 9px recoil, a lit caret, a 1.42x HUD) leaks into frame 0.
+        //
+        // Corollary, and the one trap here that `check` cannot catch: give each
+        // element AT MOST ONE `display` fromTo. A second one added later as
+        // cleanup (display: block -> none) leaks its start value into frame 0 in
+        // exactly the way the line above is meant to prevent, and the only symptom
+        // is a quietly wrong first frame — no lint error, no layout finding.
         const tl = gsap.timeline({ paused: true, defaults: { immediateRender: false } });
 
         /* ═══ 1. staged reveal — the two panels arrive ═══ */
@@ -756,6 +764,10 @@
         });
 
         /* ═══ 9. sequenced UI life — the HUD counts them in ═══ */
+        // One proxy object stepped with `steps(8)`, rewriting textContent on
+        // update. The obvious alternative — nine stacked digit elements revealed
+        // one at a time — fails: the layout audit measures all nine rectangles
+        // regardless of opacity/visibility and reports content_overlap.
         const numTxt = q("#hud-num-txt");
         const counter = { v: 0 };
         const TICK0 = 4.35,

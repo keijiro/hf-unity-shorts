@@ -7,7 +7,7 @@
     "h": 1024,
     "aspect": "1:1"
   },
-  "style": "schematic / diagrammatic. Pure black stage, two floating panels: a dark code-agent panel above, a simplified Bunny Blitz game diagram below. Flat vector game art (platform slabs, glyph bunny, gold coins) in the Bunny Blitz brand palette. Causal chain is the hero: type -> eval -> flight -> impact -> spawn -> count.",
+  "style": "schematic / diagrammatic. Pure black stage, two floating panels: a dark code-agent panel above, a simplified Bunny Blitz game diagram below. Flat vector game art (platform slabs, gold coins) with the real Bunny Blitz character render as the hero in the Bunny Blitz brand palette. Causal chain is the hero: type -> eval -> flight -> impact -> spawn -> count.",
   "palette": [
     "#000000",
     "#0B0F16",
@@ -27,7 +27,17 @@
     5.35
   ],
   "export": "mov",
-  "asset_needs": [],
+  "asset_needs": [
+    {
+      "id": "bunny-render",
+      "path": "assets/bunny-render.png",
+      "kind": "image",
+      "size": "442x800 RGBA (transparent cutout)",
+      "source": "Prefab_Rabbit, rendered from the Unity project at /Users/keijiro/Projects/bunny-blitz/worktree-pipeline-eval",
+      "regenerate": "tools/render-bunny.cs via `unity command eval_file`",
+      "why": "user asked for the actual project character instead of the hand-drawn SVG glyph"
+    }
+  ],
   "block": null,
   "customize": {
     "borrowed_mechanic": "confetti component's seeded index-function particle values (deterministic per-index targets) reapplied to the coin ring burst"
