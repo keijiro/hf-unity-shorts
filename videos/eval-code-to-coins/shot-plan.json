@@ -7,14 +7,17 @@
     "h": 1024,
     "aspect": "1:1"
   },
-  "style": "schematic / diagrammatic. Pure black stage, two floating panels: a dark code-agent panel above, a simplified Bunny Blitz game diagram below. Flat vector game art (platform slabs, gold coins) with the real Bunny Blitz character render as the hero in the Bunny Blitz brand palette. Causal chain is the hero: type -> eval -> flight -> impact -> spawn -> count.",
+  "style": "schematic / diagrammatic. Pure black stage, two floating panels: a dark code-agent panel above, a simplified, chrome-free Bunny Blitz game diagram below. The game panel's ground is a dark graded night sky; flat vector game art (green platform slabs, gold coins) with the real Bunny Blitz character render as the hero. The BUNNY BLITZ banner carries the Unity mark beside it. Causal chain is the hero: type -> eval -> flight -> impact -> spawn.",
   "palette": [
     "#000000",
     "#0B0F16",
     "#35D3F5",
-    "#100826",
+    "#03071A",
+    "#10224F",
+    "#2E7D46",
+    "#7BE08C",
+    "#3AA35C",
     "#4B1E9E",
-    "#1E9BF0",
     "#FFC824",
     "#E8A317",
     "#FF2D96"
@@ -36,6 +39,15 @@
       "source": "Prefab_Rabbit, rendered from the Unity project at /Users/keijiro/Projects/bunny-blitz/worktree-pipeline-eval",
       "regenerate": "tools/render-bunny.cs via `unity command eval_file`",
       "why": "user asked for the actual project character instead of the hand-drawn SVG glyph"
+    },
+    {
+      "id": "unity-logo",
+      "path": "assets/unity-logo.png",
+      "kind": "image",
+      "size": "154x130 RGBA (light-on-dark variant)",
+      "source": "/Applications/Unity/Hub/Editor/6000.6.0f1/PlaybackEngines/WebGLSupport/BuildTools/WebGLTemplates/Base/Default/TemplateData/unity-logo-dark.png",
+      "regenerate": "copy the same file from any local Unity Editor install",
+      "why": "user asked for the Unity mark beside the BUNNY BLITZ banner"
     }
   ],
   "block": null,
@@ -78,13 +90,14 @@
         "angle_offset_deg": -67.5
       },
       "avoid": [
-        "HUD chip top-right of game panel",
-        "BUNNY BLITZ chip top-left of game panel"
+        "BUNNY BLITZ + Unity mark lockup, top-left of game panel"
       ]
     },
     "derived_palette": [
       "#4B1E9E",
-      "#1E9BF0",
+      "#2E7D46",
+      "#3AA35C",
+      "#10224F",
       "#FFC824",
       "#E8A317",
       "#FF2D96",
@@ -96,7 +109,7 @@
     "beats": [
       {
         "t": 0.0,
-        "what": "agent panel enters (y -44 -> 0), game panel follows at 0.20 — staggered reveal"
+        "what": "both panels enter together on frame 0 — agent y -44 -> 0, game y 52 -> 0, same 0.6s power3.out. Neither may start late: with immediateRender off, a late start shows the CSS-visible panel first, then blinks it out to fade in."
       },
       {
         "t": 0.8,
@@ -136,18 +149,18 @@
       },
       {
         "t": 4.35,
-        "what": "sequenced UI life: HUD counts 0 -> 8 on a steps(8) proxy, one tick per coin, each coin pinging as it is counted"
+        "what": "sequenced life: the 8 coins ping one by one in spawn order (0.09s apart) — with no HUD counter, the coins alone carry the tally"
       },
       {
         "t": 5.15,
-        "what": "the total lands: HUD '8' pops to 1.16x, gold sweep runs the panel, agent appends '· 8 coins spawned'"
+        "what": "the total lands: gold sweep runs the panel, agent appends '· 8 coins spawned'"
       },
       {
         "t": 5.9,
         "what": "final hold to 7.0s (editing handle)"
       }
     ],
-    "result_line": "agent panel shows '✓ evaluated' on the impact frame, then '· 8 coins spawned' when the count lands — so the report never precedes the effect"
+    "result_line": "agent panel shows '✓ evaluated' on the impact frame, then '· 8 coins spawned' once the ring has finished pinging — so the report never precedes the effect, and it is now the only place the count is stated"
   },
   "motion_notes": [
     "single continuous scene — no cuts, so the Seam Law/ledger does not apply; motion-doctrine's causal-motion + stillness-before-climax + no-idle-wobble rules do",
@@ -157,7 +170,7 @@
   ],
   "verify": {
     "lint": "0 errors",
-    "check": "passed — layout 0/0, motion 0/0, contrast 78/78 WCAG AA",
+    "check": "passed — layout 0/0, motion 0/0, contrast 71/71 WCAG AA",
     "known_info_findings": [
       "caret adjacency flagged as occlusion at t=1.17/1.94 (the caret sits in the next, display:none cell)",
       "#game-inner 3.45px overflow at t=3.5 — the intentional impact recoil, clipped by #game"

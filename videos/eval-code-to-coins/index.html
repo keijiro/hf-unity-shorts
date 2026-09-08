@@ -29,12 +29,21 @@
         --tk-punct: #b3c1d3;
 
         /* bunny blitz side */
-        --game-bg: #100826;
-        --game-bg-2: #1a0d3a;
+        /* sky: graded from a near-black zenith down to a blue horizon glow.
+           Every stop stays well under the stage's mid-grey so the panel keeps
+           reading as a dark diagram and the gold coins stay the brightest
+           thing in frame. */
+        --sky-zenith: #03071a;
+        --sky-high: #06102b;
+        --sky-mid: #0a1839;
+        --sky-low: #10224f;
         --purple: #4b1e9e;
         --purple-lit: #7b4bd8;
-        --blue: #1e9bf0;
-        --blue-lit: #6fc8ff;
+        /* platforms: one green family — deep grass ground, brighter ledges */
+        --green: #2e7d46;
+        --green-lit: #7be08c;
+        --green-2: #3aa35c;
+        --green-2-lit: #8cefa0;
         --yellow: #ffc824;
         --gold: #e8a317;
         --gold-lit: #ffd75e;
@@ -205,10 +214,9 @@
       /* ───────────────────── the code in flight ───────────────────── */
 
       /* left 470 is not arbitrary: together with FLY.dx (-108) it keeps the whole
-         flight inside the x 470 -> 362 corridor, which is the only lane that
-         crosses neither the BUNNY BLITZ chip (top-left of #game) nor the HUD
-         (top-right). Move this left edge or FLY.dx and the layout audit starts
-         reporting occlusion against that text. */
+         flight inside the x 470 -> 362 corridor, which clears the BUNNY BLITZ /
+         Unity lockup in the game panel's top-left. Move this left edge or
+         FLY.dx and the layout audit starts reporting occlusion against it. */
       #packet {
         position: absolute;
         left: 470px;
@@ -273,8 +281,19 @@
         border: 2px solid var(--purple);
         border-radius: 26px;
         background:
-          radial-gradient(120% 90% at 50% 118%, var(--game-bg-2) 0%, transparent 62%),
-          var(--game-bg);
+          radial-gradient(
+              148% 76% at 50% 116%,
+              rgba(74, 136, 228, 0.36) 0%,
+              rgba(32, 66, 140, 0.15) 40%,
+              transparent 68%
+            ),
+          linear-gradient(
+            180deg,
+            var(--sky-zenith) 0%,
+            var(--sky-high) 42%,
+            var(--sky-mid) 74%,
+            var(--sky-low) 100%
+          );
         overflow: hidden;
       }
       #game-inner {
@@ -288,8 +307,8 @@
         inset: 0;
         opacity: 0.5;
         background-image:
-          linear-gradient(to right, rgba(123, 75, 216, 0.13) 1px, transparent 1px),
-          linear-gradient(to bottom, rgba(123, 75, 216, 0.13) 1px, transparent 1px);
+          linear-gradient(to right, rgba(138, 186, 255, 0.1) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(138, 186, 255, 0.1) 1px, transparent 1px);
         background-size: 52px 52px;
       }
 
@@ -313,30 +332,44 @@
         top: 348px;
         width: 752px;
         height: 60px;
-        background: var(--purple);
-        --edge: var(--purple-lit);
+        background: var(--green);
+        --edge: var(--green-lit);
       }
       #ledge-r {
         left: 596px;
         top: 250px;
         width: 160px;
         height: 38px;
-        background: var(--blue);
-        --edge: var(--blue-lit);
+        background: var(--green-2);
+        --edge: var(--green-2-lit);
       }
       #ledge-l {
         left: 76px;
         top: 288px;
         width: 124px;
         height: 34px;
-        background: var(--blue);
-        --edge: var(--blue-lit);
+        background: var(--green-2);
+        --edge: var(--green-2-lit);
       }
 
-      #bb-chip {
+      /* the banner and the Unity mark ride one auto-width flex row, so the
+         mark stays glued to the chip's right edge whatever the text measures */
+      #bb-lockup {
         position: absolute;
         left: 30px;
         top: 26px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        gap: 13px;
+      }
+      #unity-mark {
+        flex: none;
+        display: block;
+        width: 38px;
+        height: 32px;
+      }
+      #bb-chip {
         height: 44px;
         display: flex;
         align-items: center;
@@ -348,38 +381,6 @@
         font-weight: 700;
         line-height: 40px;
         letter-spacing: 0.16em;
-        color: var(--yellow);
-      }
-
-      #hud {
-        position: absolute;
-        right: 30px;
-        top: 26px;
-        height: 72px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-      }
-      #hud-coin {
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        background: radial-gradient(circle at 34% 30%, var(--gold-lit), var(--gold) 62%);
-        box-shadow: inset 0 0 0 2.5px var(--gold-rim);
-      }
-      #hud-num {
-        position: relative;
-        width: 34px;
-        height: 72px;
-      }
-      #hud-num-txt {
-        display: block;
-        width: 34px;
-        text-align: center;
-        font-family: var(--mono);
-        font-size: 34px;
-        font-weight: 700;
-        line-height: 72px;
         color: var(--yellow);
       }
 
@@ -555,12 +556,17 @@
             <div data-hf-id="hf-m1rf" id="ring"></div>
             <div data-hf-id="hf-pwcb" id="ring2"></div>
 
-            <div data-hf-id="hf-njif" id="bb-chip">BUNNY BLITZ</div>
-            <div data-hf-id="hf-i9xo" id="hud">
-              <div data-hf-id="hf-9vhm" id="hud-coin"></div>
-              <div data-hf-id="hf-1grn" id="hud-num"><span data-hf-id="hf-c9tv" id="hud-num-txt">0</span></div>
+            <div data-hf-id="hf-u1ty" id="bb-lockup">
+              <div data-hf-id="hf-njif" id="bb-chip">BUNNY BLITZ</div>
+              <img
+                data-hf-id="hf-lk9p"
+                id="unity-mark"
+                src="assets/unity-logo.png"
+                width="154"
+                height="130"
+                alt=""
+              />
             </div>
-
             <div data-hf-id="hf-1yur" id="sweep"></div>
           </div>
         </div>
@@ -642,7 +648,7 @@
 
         // CSS is the authored t=0 state for every element, so no fromTo may stamp
         // its from-vars at build time — otherwise a later tween's start value
-        // (a 9px recoil, a lit caret, a 1.42x HUD) leaks into frame 0.
+        // (a 9px recoil, a lit caret, a 1.2x coin) leaks into frame 0.
         //
         // Corollary, and the one trap here that `check` cannot catch: give each
         // element AT MOST ONE `display` fromTo. A second one added later as
@@ -651,9 +657,13 @@
         // is a quietly wrong first frame — no lint error, no layout finding.
         const tl = gsap.timeline({ paused: true, defaults: { immediateRender: false } });
 
-        /* ═══ 1. staged reveal — the two panels arrive ═══ */
+        /* ═══ 1. paired reveal — both panels arrive on the same frame ═══ */
+        // Both tweens must sit at position 0. A later start would leave the
+        // panel showing its CSS (fully visible) state until the tween's first
+        // render, then blink out to autoAlpha 0 and fade back in — the exact
+        // artefact `immediateRender: false` costs us here.
         tl.fromTo("#agent", { y: -44, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.6, ease: "power3.out" }, 0);
-        tl.fromTo("#game", { y: 52, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.6, ease: "power3.out" }, 0.2);
+        tl.fromTo("#game", { y: 52, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.6, ease: "power3.out" }, 0);
 
         /* ═══ 2. the agent types ═══ */
         lines.forEach((l) => {
@@ -763,40 +773,20 @@
           );
         });
 
-        /* ═══ 9. sequenced UI life — the HUD counts them in ═══ */
-        // One proxy object stepped with `steps(8)`, rewriting textContent on
-        // update. The obvious alternative — nine stacked digit elements revealed
-        // one at a time — fails: the layout audit measures all nine rectangles
-        // regardless of opacity/visibility and reports content_overlap.
-        const numTxt = q("#hud-num-txt");
-        const counter = { v: 0 };
+        /* ═══ 9. sequenced UI life — the ring counts itself in ═══ */
+        // With the HUD counter gone, the tally is carried by the coins alone:
+        // one ping per coin, in spawn order, so the eye still reads eight
+        // discrete events instead of one undifferentiated gold mass.
         const TICK0 = 4.35,
           GAP = 0.09;
-        tl.to(
-          counter,
-          {
-            v: 8,
-            duration: 8 * GAP,
-            ease: "steps(8)",
-            onUpdate: () => {
-              numTxt.textContent = String(Math.round(counter.v));
-            },
-          },
-          TICK0
-        );
         for (let i = 0; i < 8; i++) {
           const at = TICK0 + (i + 1) * GAP;
-          tl.fromTo("#hud-coin", { scale: 1 }, { scale: 1.22, duration: 0.05, ease: "power2.out" }, at);
-          tl.fromTo("#hud-coin", { scale: 1.22 }, { scale: 1, duration: 0.06, ease: "power2.in" }, at + 0.05);
-          // the coin being counted answers back
           tl.fromTo(coins[i].el, { scale: 1 }, { scale: 1.2, duration: 0.05, ease: "power2.out" }, at);
           tl.fromTo(coins[i].el, { scale: 1.2 }, { scale: 1, duration: 0.06, ease: "power2.in" }, at + 0.05);
         }
 
         /* ═══ 10. the total lands ═══ */
         const LAND = 5.15;
-        tl.fromTo("#hud-num", { scale: 1 }, { scale: 1.42, duration: 0.14, ease: "back.out(2.4)" }, LAND);
-        tl.fromTo("#hud-num", { scale: 1.42 }, { scale: 1.16, duration: 0.24, ease: "power2.inOut" }, LAND + 0.14);
         tl.fromTo(
           "#result-more",
           { display: "none", opacity: 0 },
