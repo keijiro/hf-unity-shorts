@@ -47,8 +47,8 @@ transcript.json
 # Agent instructions stamped into each project by `hyperframes init` /
 # `skills update`. Pure derivatives of the skills above, and they churn on
 # every CLI upgrade — regenerated automatically, so not tracked.
-videos/*/AGENTS.md
-videos/*/CLAUDE.md
+*/AGENTS.md
+*/CLAUDE.md
 
 # ─────────────────────────────────────────────────────────────
 #  Deliberately TRACKED (do not add ignore rules for these)
