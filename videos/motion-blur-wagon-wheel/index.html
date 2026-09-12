@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <title>Wagon-wheel effect — motion blur insert</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --bg: #06080c;
+        --ink: #eef4fb;
+        --dim: #8a98ab;
+        --cyan: #35d3f5;
+        --warn: #ff6a3d;
+        --ok: #7be08c;
+        --chip-a: #ffb199;
+        --chip-b: #8ee8ff;
+        --line: rgba(138, 152, 171, 0.22);
+        --jp: "Noto Sans JP", sans-serif;
+        --mono: "JetBrains Mono", monospace;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background: var(--bg);
+      }
+      body {
+        font-family: var(--jp);
+        color: var(--ink);
+      }
+
+      #stage {
+        position: relative;
+        width: 1080px;
+        height: 1920px;
+        background: var(--bg);
+      }
+
+      #scene {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        padding: 84px 90px 90px;
+      }
+
+      /* ── top chrome ─────────────────────────────────────────── */
+      .hud {
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        font-family: var(--mono);
+        font-size: 32px;
+        letter-spacing: 0.02em;
+        color: var(--dim);
+      }
+      .hud b {
+        color: var(--cyan);
+        font-weight: 700;
+      }
+
+      /* ── live readout: true speed vs apparent speed ──────────── */
+      .readout {
+        margin-top: 40px;
+        display: flex;
+        gap: 28px;
+      }
+      .metric {
+        flex: 1;
+        padding: 26px 30px 30px;
+        border: 2px solid var(--line);
+        border-radius: 18px;
+      }
+      .m-label {
+        font-size: 34px;
+        font-weight: 400;
+        color: var(--dim);
+      }
+      .m-row {
+        margin-top: 10px;
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+      }
+      .m-val {
+        font-family: var(--mono);
+        font-weight: 700;
+        font-size: 92px;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.02em;
+      }
+      .m-unit {
+        font-family: var(--mono);
+        font-size: 34px;
+        color: var(--dim);
+      }
+
+      /* ── propeller rigs ─────────────────────────────────────── */
+      .props {
+        position: relative;
+        flex: 1;
+      }
+      .rig {
+        position: absolute;
+        left: 100px;
+        width: 700px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+      }
+      #rigA {
+        top: 22px;
+      }
+      #rigB {
+        top: 682px;
+      }
+      .chip {
+        height: 58px;
+        padding: 0 28px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        border: 2px solid var(--line);
+        border-radius: 29px;
+        font-size: 34px;
+        font-weight: 700;
+      }
+      .chip-a {
+        color: var(--chip-a);
+      }
+      .chip-b {
+        color: var(--chip-b);
+      }
+      .chip i {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .prop {
+        width: 560px;
+        height: 560px;
+      }
+      .prop-svg {
+        display: block;
+        width: 560px;
+        height: 560px;
+      }
+      /* the accumulation buffer: sub-frame copies are summed, not stacked.
+         blur(3px) is a dither pass, applied equally to both rigs, that
+         dissolves the 5/255 coverage steps the 8-bit composite leaves behind. */
+      .accum {
+        isolation: isolate;
+        filter: blur(3px);
+      }
+
+      /* ── bottom slam label ──────────────────────────────────── */
+      .labelslot {
+        position: relative;
+        height: 100px;
+      }
+      .phase {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 88px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        white-space: nowrap;
+      }
+      #L1 {
+        color: var(--cyan);
+      }
+      #L2 {
+        color: var(--warn);
+      }
+      #L3 {
+        color: var(--ink);
+      }
+      #L4 {
+        color: var(--ok);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- shared geometry: one blade set + one hub, instanced by every sample layer -->
+    <svg id="lib" width="0" height="0" aria-hidden="true" style="position: absolute">
+      <defs>
+        <radialGradient id="hubGrad" cx="0.38" cy="0.32" r="0.78">
+          <stop offset="0" stop-color="#6d7d92" />
+          <stop offset="1" stop-color="#222a36" />
+        </radialGradient>
+        <g id="bladeset">
+          <path
+            transform="rotate(0)"
+            fill="#f0f0f0"
+            d="M -16 -40 C -44 -104, -50 -180, -26 -238 C -14 -266, 20 -264, 30 -232 C 48 -174, 36 -100, 16 -40 Z"
+          />
+          <path
+            transform="rotate(120)"
+            fill="#f0f0f0"
+            d="M -16 -40 C -44 -104, -50 -180, -26 -238 C -14 -266, 20 -264, 30 -232 C 48 -174, 36 -100, 16 -40 Z"
+          />
+          <path
+            transform="rotate(240)"
+            fill="#f0f0f0"
+            d="M -16 -40 C -44 -104, -50 -180, -26 -238 C -14 -266, 20 -264, 30 -232 C 48 -174, 36 -100, 16 -40 Z"
+          />
+        </g>
+        <g id="hub">
+          <circle r="50" fill="url(#hubGrad)" />
+          <circle r="50" fill="none" stroke="rgba(238,244,251,0.22)" stroke-width="2" />
+          <circle r="22" fill="#0b1017" />
+        </g>
+      </defs>
+    </svg>
+
+    <div
+      id="stage"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="11"
+      data-fps="30"
+      data-width="1080"
+      data-height="1920"
+    >
+      <div id="scene" class="clip" data-start="0" data-duration="11" data-track-index="1">
+        <div class="hud">3枚羽プロペラ<b>/</b>時計回り<b>/</b>30 fps でサンプリング</div>
+
+        <div class="readout">
+          <div class="metric">
+            <div class="m-label">実際の回転</div>
+            <div class="m-row"><span id="valTrue" class="m-val">0.0</span><span class="m-unit">rev/s</span></div>
+          </div>
+          <div class="metric">
+            <div class="m-label">見かけの回転</div>
+            <div class="m-row"><span id="valApp" class="m-val">0.0</span><span class="m-unit">rev/s</span></div>
+          </div>
+        </div>
+
+        <div class="props">
+          <div id="rigA" class="rig">
+            <div id="chipA" class="chip chip-a"><i></i>モーションブラーなし</div>
+            <div class="prop">
+              <svg class="prop-svg" viewBox="0 0 560 560">
+                <g id="accumA" class="accum" data-layout-allow-overflow="true"></g>
+                <g transform="translate(280,280)"><use href="#hub" /></g>
+              </svg>
+            </div>
+          </div>
+
+          <div id="rigB" class="rig">
+            <div id="chipB" class="chip chip-b"><i></i>モーションブラーあり</div>
+            <div class="prop">
+              <svg class="prop-svg" viewBox="0 0 560 560">
+                <g id="accumB" class="accum" data-layout-allow-overflow="true"></g>
+                <g transform="translate(280,280)"><use href="#hub" /></g>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="labelslot">
+          <div id="L1" class="phase">止まって見える</div>
+          <div id="L2" class="phase">逆回転して見える</div>
+          <div id="L3" class="phase">ブラーは誤りを消す</div>
+          <div id="L4" class="phase">動きの情報が補われる</div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ─────────────────────────────────────────────────────────────
+      // Temporal aliasing demo. Everything below is a pure function of
+      // composition time t — no clocks, no randomness, no accumulation.
+      // ─────────────────────────────────────────────────────────────
+      const FPS = 30;
+      const BLADES = 3;
+      const DUR = 11;
+      const PERIOD = 360 / BLADES; // 120deg — the propeller's own symmetry
+      const W_FREEZE = FPS / BLADES; // 10 rev/s -> 120deg/frame -> dead still
+      const W_REVERSE = 50 / 3; // 16.667 rev/s -> 200deg/frame -> reads as -3.33 rev/s
+
+      // 360deg shutter: the blurred rig integrates the full frame interval,
+      // centered on the frame time so its mean angle matches the crisp rig.
+      // 80 sub-frame samples: 240/80 = 3.0 exactly per 8-bit channel, so the
+      // sum of N copies is exact and neither drifts in colour nor bands.
+      const SAMPLES = 80;
+
+      // [t0, t1, w0, w1] — angular speed in rev/s, smoothstep between w0 and w1
+      const SEGS = [
+        [0.0, 0.8, 0, 0],
+        [0.8, 3.0, 0, W_FREEZE],
+        [3.0, 4.4, W_FREEZE, W_FREEZE],
+        [4.4, 5.0, W_FREEZE, W_REVERSE],
+        [5.0, 7.2, W_REVERSE, W_REVERSE],
+        [7.2, 8.0, W_REVERSE, W_FREEZE],
+        [8.0, 9.0, W_FREEZE, W_FREEZE],
+        [9.0, 10.1, W_FREEZE, 3.5],
+        [10.1, 11.0, 3.5, 3.5],
+      ];
+
+      // Cumulative revolutions at each segment boundary. The integral of a
+      // smoothstep ramp over a full segment is just its mean speed.
+      const CUM = [0];
+      for (const [t0, t1, w0, w1] of SEGS) CUM.push(CUM[CUM.length - 1] + ((t1 - t0) * (w0 + w1)) / 2);
+
+      const segIndexAt = (t) => {
+        for (let i = 0; i < SEGS.length - 1; i++) if (t < SEGS[i][1]) return i;
+        return SEGS.length - 1;
+      };
+      const clamp01 = (u) => (u < 0 ? 0 : u > 1 ? 1 : u);
+
+      // Exact integral of the smoothstep speed ramp: closed form, so any
+      // sub-frame time can be evaluated directly.
+      function revsAt(t) {
+        if (t <= 0) return 0;
+        const i = segIndexAt(t);
+        const [t0, t1, w0, w1] = SEGS[i];
+        const T = t1 - t0;
+        const u = clamp01((t - t0) / T);
+        return CUM[i] + T * (w0 * u + (w1 - w0) * (u * u * u - 0.5 * u * u * u * u));
+      }
+
+      function speedAt(t) {
+        const i = segIndexAt(t);
+        const [t0, t1, w0, w1] = SEGS[i];
+        const u = clamp01((t - t0) / (t1 - t0));
+        return w0 + (w1 - w0) * u * u * (3 - 2 * u);
+      }
+
+      // What a 30 fps sampler reports: the per-frame step folded into the
+      // propeller's own symmetry, then read back as a speed.
+      function apparentAt(t) {
+        const step = (speedAt(t) * 360) / FPS;
+        let a = ((step % PERIOD) + PERIOD) % PERIOD;
+        if (a > PERIOD / 2) a -= PERIOD;
+        return (a / 360) * FPS;
+      }
+
+      // ── build the accumulation buffers ──────────────────────────
+      const SVG_NS = "http://www.w3.org/2000/svg";
+      function buildSamples(hostId, count) {
+        const host = document.getElementById(hostId);
+        const layers = [];
+        for (let j = 0; j < count; j++) {
+          const g = document.createElementNS(SVG_NS, "g");
+          if (count > 1) {
+            // opacity 1/N summed additively over black == arithmetic mean
+            g.style.mixBlendMode = "plus-lighter";
+            g.style.opacity = String(1 / count);
+          }
+          const u = document.createElementNS(SVG_NS, "use");
+          u.setAttribute("href", "#bladeset");
+          g.appendChild(u);
+          host.appendChild(g);
+          layers.push(g);
+        }
+        return layers;
+      }
+      const layersA = buildSamples("accumA", 1);
+      const layersB = buildSamples("accumB", SAMPLES);
+
+      // Fold into the propeller's own 120deg symmetry before writing: keeps the
+      // rasteriser off huge angles, so a genuinely frozen sample set is
+      // bit-identical frame to frame instead of drifting by a few LSBs of AA.
+      const setAngle = (g, deg) => {
+        let a = deg % PERIOD;
+        if (a < 0) a += PERIOD;
+        if (a > PERIOD - 1e-6) a = 0; // 6840deg lands a hair under 57 periods
+        g.setAttribute("transform", "translate(280,280) rotate(" + a.toFixed(4) + ")");
+      };
+
+      const valTrue = document.getElementById("valTrue");
+      const valApp = document.getElementById("valApp");
+      const COL_OK = "#7be08c"; // --ok
+      const COL_WARN = "#ff6a3d"; // --warn
+
+      function paint(t) {
+        setAngle(layersA[0], revsAt(t) * 360);
+        for (let j = 0; j < SAMPLES; j++) {
+          const dt = ((j + 0.5) / SAMPLES - 0.5) / FPS;
+          setAngle(layersB[j], revsAt(t + dt) * 360);
+        }
+        const w = speedAt(t);
+        const a = apparentAt(t);
+        valTrue.textContent = w.toFixed(1);
+        valApp.textContent = a.toFixed(1);
+        valApp.style.color = Math.abs(a - w) < 0.25 ? COL_OK : COL_WARN;
+      }
+      paint(0); // seed frame 0 before the timeline exists
+
+      // ── timeline ────────────────────────────────────────────────
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      const drv = { t: 0 };
+      tl.to(drv, { t: DUR, duration: DUR, ease: "none", onUpdate: () => paint(drv.t) }, 0);
+
+      // Act 2: the crisp rig rises to make room, the blurred twin slides in.
+      tl.fromTo("#rigA", { y: 336 }, { y: 0, duration: 0.7, ease: "power3.inOut" }, 6.3);
+      tl.fromTo("#chipA", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4, ease: "power2.out" }, 6.6);
+      tl.fromTo(
+        "#rigB",
+        { autoAlpha: 0, y: 70 },
+        { autoAlpha: 1, y: 0, duration: 0.6, ease: "power3.out" },
+        6.5,
+      );
+      tl.fromTo("#chipB", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4, ease: "power2.out" }, 6.8);
+
+      function slam(sel, tin, tout) {
+        tl.fromTo(
+          sel,
+          { autoAlpha: 0, y: 26, scale: 0.94 },
+          { autoAlpha: 1, y: 0, scale: 1, duration: 0.34, ease: "power4.out" },
+          tin,
+        );
+        if (tout !== null) tl.to(sel, { autoAlpha: 0, duration: 0.24, ease: "power2.in" }, tout);
+      }
+      slam("#L1", 3.25, 4.35);
+      slam("#L2", 5.15, 6.25);
+      slam("#L3", 8.1, 9.05);
+      slam("#L4", 10.15, null);
+
+      tl.seek(0);
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

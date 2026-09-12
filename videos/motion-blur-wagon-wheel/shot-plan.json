@@ -1,0 +1,47 @@
+{
+  "category": "custom-diagram",
+  "note": "No form category fits: this is a hand-authored physical demo (temporal aliasing / wagon-wheel effect). Closest relative is `charts` (data-driven readout) but the hero is a simulated rotating object.",
+  "duration_s": 11.0,
+  "fps": 30,
+  "canvas": { "w": 1080, "h": 1920, "aspect": "9:16" },
+  "style": "technical instrument panel on near-black. One hero propeller, a live numeric readout of true vs apparent speed, Japanese slam labels. Silent insert cut for a YouTube Shorts explainer on motion blur.",
+  "palette": ["#06080c", "#eef4fb", "#8a98ab", "#35d3f5", "#ff6a3d", "#7be08c"],
+  "font": "Noto Sans JP (labels) + JetBrains Mono (numbers)",
+  "export": "mp4",
+  "asset_needs": [],
+  "content": {
+    "source_line": "motion-blur.md L14 — 高速に回転する物体をストロボ的に撮影すると、止まっているように見えたり、逆方向に動いているかのように見えてしまう",
+    "physics": {
+      "blades": 3,
+      "pattern_period_deg": 120,
+      "freeze_speed_rev_s": 10.0,
+      "freeze_derivation": "fps / blades = 30 / 3",
+      "reverse_speed_rev_s": 16.6667,
+      "reverse_derivation": "200 deg/frame -> wrap(200,120) = -40 deg/frame -> apparent -3.33 rev/s",
+      "shutter": "360 deg (full frame interval, centered on the frame time)",
+      "blur_samples": 80,
+      "blur_method": "in-composition accumulation: 80 sub-frame copies at opacity 1/80 composited with mix-blend-mode: plus-lighter over black = exact arithmetic mean (box filter). blade fill 240/255 so 240/80 = 3.0 exactly per 8-bit channel"
+    },
+    "acts": [
+      { "id": "act1", "start": 0.0, "end": 6.3, "beat": "single crisp propeller: still -> spin up -> appears frozen at 10 rev/s -> appears to reverse at 16.67 rev/s" },
+      { "id": "act2", "start": 6.3, "end": 11.0, "beat": "A/B: crisp rig rises, blurred twin slides in below. Same speed throughout: 16.67 -> 10 (money shot: A dead still, B a spinning disc) -> down to 3.5 where both agree" }
+    ],
+    "speed_profile": [
+      [0.0, 0.8, 0, 0],
+      [0.8, 3.0, 0, 10],
+      [3.0, 4.4, 10, 10],
+      [4.4, 5.0, 10, 16.6667],
+      [5.0, 7.2, 16.6667, 16.6667],
+      [7.2, 8.0, 16.6667, 10],
+      [8.0, 9.0, 10, 10],
+      [9.0, 10.1, 10, 3.5],
+      [10.1, 11.0, 3.5, 3.5]
+    ],
+    "labels": [
+      { "t": 3.25, "out": 4.35, "text": "止まって見える" },
+      { "t": 5.15, "out": 6.25, "text": "逆回転して見える" },
+      { "t": 8.1, "out": 9.05, "text": "ブラーは誤りを消す" },
+      { "t": 10.15, "out": null, "text": "動きの情報が補われる" }
+    ]
+  }
+}
