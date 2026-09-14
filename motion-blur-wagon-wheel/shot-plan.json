@@ -1,12 +1,23 @@
 {
   "category": "custom-diagram",
   "note": "No form category fits: this is a hand-authored physical demo (temporal aliasing / wagon-wheel effect). Closest relative is `charts` (data-driven readout) but the hero is a simulated rotating object.",
-  "duration_s": 11.0,
-  "fps": 30,
-  "canvas": { "w": 1080, "h": 1920, "aspect": "9:16" },
-  "style": "technical instrument panel on near-black. One hero propeller, a live numeric readout of true vs apparent speed, Japanese slam labels. Silent insert cut for a YouTube Shorts explainer on motion blur.",
-  "palette": ["#06080c", "#eef4fb", "#8a98ab", "#35d3f5", "#ff6a3d", "#7be08c"],
-  "font": "Noto Sans JP (labels) + JetBrains Mono (numbers)",
+  "duration_s": 40.0,
+  "fps": 24,
+  "canvas": {
+    "w": 1080,
+    "h": 1080,
+    "aspect": "1:1"
+  },
+  "style": "technical instrument panel on near-black. One propeller, centre frame, with a bare numeric readout of its real rotation rate. Two sequential 20s passes over the same ramp: no motion blur, then motion blur. No captions, no chips. Silent insert cut for a motion-blur explainer.",
+  "palette": [
+    "#06080c",
+    "#eef4fb",
+    "#8a98ab",
+    "#35d3f5",
+    "#ff6a3d",
+    "#7be08c"
+  ],
+  "font": "Google Sans (Noto Sans JP as the CJK fallback — Google Sans has no CJK subset)",
   "export": "mp4",
   "asset_needs": [],
   "content": {
@@ -14,34 +25,41 @@
     "physics": {
       "blades": 3,
       "pattern_period_deg": 120,
-      "freeze_speed_rev_s": 10.0,
-      "freeze_derivation": "fps / blades = 30 / 3",
-      "reverse_speed_rev_s": 16.6667,
-      "reverse_derivation": "200 deg/frame -> wrap(200,120) = -40 deg/frame -> apparent -3.33 rev/s",
       "shutter": "360 deg (full frame interval, centered on the frame time)",
       "blur_samples": 80,
-      "blur_method": "in-composition accumulation: 80 sub-frame copies at opacity 1/80 composited with mix-blend-mode: plus-lighter over black = exact arithmetic mean (box filter). blade fill 240/255 so 240/80 = 3.0 exactly per 8-bit channel"
+      "blur_method": "in-composition accumulation: 80 sub-frame copies at opacity 1/80 composited with mix-blend-mode: plus-lighter over black = exact arithmetic mean (box filter). blade fill 240/255 so 240/80 = 3.0 exactly per 8-bit channel",
+      "ramp": "linear 0 -> 15 rev/s over 20 s, repeated identically in both passes",
+      "aliasing_derivation": "fps/blades = 8 rev/s = 120deg/frame = one whole pattern period, so the crisp pass is dead still only at 8 rev/s (t=10.67s). Half that, 4 rev/s = 60deg/frame, is Nyquist: the blades jump back and forth and direction is lost (t=5.33s, and again at 12 rev/s whose 180deg/frame folds to 60deg, t=16.0s). Between 4 and 8 rev/s the propeller reads as running backwards. The ramp ends at 15 rev/s = 225deg/frame, folding to -15deg: a 1 rev/s backwards crawl at full speed.",
+      "aliasing_period_rev_s": 8.0
     },
     "acts": [
-      { "id": "act1", "start": 0.0, "end": 6.3, "beat": "single crisp propeller: still -> spin up -> appears frozen at 10 rev/s -> appears to reverse at 16.67 rev/s" },
-      { "id": "act2", "start": 6.3, "end": 11.0, "beat": "A/B: crisp rig rises, blurred twin slides in below. Same speed throughout: 16.67 -> 10 (money shot: A dead still, B a spinning disc) -> down to 3.5 where both agree" }
+      {
+        "id": "passA",
+        "start": 0.0,
+        "end": 20.0,
+        "beat": "No motion blur. Propeller ramps linearly 0 -> 15 rev/s: direction is lost at 4 rev/s, it runs visibly backwards from 4 to 8, goes dead still at 8, reads forwards again, loses direction once more at 12, and ends crawling backwards at an apparent 1 rev/s."
+      },
+      {
+        "id": "passB",
+        "start": 20.0,
+        "end": 40.0,
+        "beat": "Motion blur. The identical ramp again, integrated over a 360deg shutter — the smear grows with the real speed, the backwards crawl and the false freeze are gone, and at 8 rev/s and above the propeller is an honest uniform disc."
+      }
     ],
     "speed_profile": [
-      [0.0, 0.8, 0, 0],
-      [0.8, 3.0, 0, 10],
-      [3.0, 4.4, 10, 10],
-      [4.4, 5.0, 10, 16.6667],
-      [5.0, 7.2, 16.6667, 16.6667],
-      [7.2, 8.0, 16.6667, 10],
-      [8.0, 9.0, 10, 10],
-      [9.0, 10.1, 10, 3.5],
-      [10.1, 11.0, 3.5, 3.5]
+      [
+        0.0,
+        20.0,
+        0,
+        15.0
+      ],
+      [
+        20.0,
+        40.0,
+        0,
+        15.0
+      ]
     ],
-    "labels": [
-      { "t": 3.25, "out": 4.35, "text": "止まって見える" },
-      { "t": 5.15, "out": 6.25, "text": "逆回転して見える" },
-      { "t": 8.1, "out": 9.05, "text": "ブラーは誤りを消す" },
-      { "t": 10.15, "out": null, "text": "動きの情報が補われる" }
-    ]
+    "labels": []
   }
 }

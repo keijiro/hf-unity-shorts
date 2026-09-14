@@ -2,7 +2,7 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=1080, height=1920" />
+    <meta name="viewport" content="width=1080, height=1080" />
     <title>Wagon-wheel effect — motion blur insert</title>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
     <style>
@@ -11,13 +11,9 @@
         --ink: #eef4fb;
         --dim: #8a98ab;
         --cyan: #35d3f5;
-        --warn: #ff6a3d;
-        --ok: #7be08c;
-        --chip-a: #ffb199;
-        --chip-b: #8ee8ff;
-        --line: rgba(138, 152, 171, 0.22);
-        --jp: "Noto Sans JP", sans-serif;
-        --mono: "JetBrains Mono", monospace;
+        /* Google Sans carries no CJK subset, so Noto Sans JP sits behind it
+           purely as the fallback for the Japanese glyphs in the HUD. */
+        --ui: "Google Sans", "Noto Sans JP", sans-serif;
       }
 
       * {
@@ -28,39 +24,41 @@
       html,
       body {
         width: 1080px;
-        height: 1920px;
+        height: 1080px;
         overflow: hidden;
         background: var(--bg);
       }
       body {
-        font-family: var(--jp);
+        font-family: var(--ui);
         color: var(--ink);
       }
 
       #stage {
         position: relative;
         width: 1080px;
-        height: 1920px;
+        height: 1080px;
         background: var(--bg);
       }
 
-      #scene {
+      /* every clip is the same full-frame box, so the two passes land the
+         propeller in exactly the same place */
+      .layer {
         position: absolute;
         inset: 0;
-        display: flex;
-        flex-direction: column;
-        padding: 84px 90px 90px;
       }
 
       /* ── top chrome ─────────────────────────────────────────── */
       .hud {
-        height: 44px;
+        position: absolute;
+        top: 58px;
+        left: 0;
+        width: 1080px;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 18px;
-        font-family: var(--mono);
-        font-size: 32px;
+        gap: 14px;
+        font-family: var(--ui);
+        font-size: 28px;
         letter-spacing: 0.02em;
         color: var(--dim);
       }
@@ -69,130 +67,58 @@
         font-weight: 700;
       }
 
-      /* ── live readout: true speed vs apparent speed ──────────── */
+      /* ── live readout: the real rotation rate, bare ──────────── */
+      /* 1fr auto 1fr: the numeral sits in the middle column, so it stays
+         centred on the frame whatever its digit count, and the unit rides in
+         the right column at a constant gap instead of dragging the pair
+         off-centre. Google Sans figures are uniform-width, so the counter
+         does not jitter between frames. */
       .readout {
-        margin-top: 40px;
-        display: flex;
-        gap: 28px;
-      }
-      .metric {
-        flex: 1;
-        padding: 26px 30px 30px;
-        border: 2px solid var(--line);
-        border-radius: 18px;
-      }
-      .m-label {
-        font-size: 34px;
-        font-weight: 400;
-        color: var(--dim);
-      }
-      .m-row {
-        margin-top: 10px;
-        display: flex;
+        position: absolute;
+        top: 150px;
+        left: 0;
+        width: 1080px;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
         align-items: baseline;
-        gap: 12px;
       }
-      .m-val {
-        font-family: var(--mono);
+      .r-val {
+        grid-column: 2;
+        font-family: var(--ui);
         font-weight: 700;
-        font-size: 92px;
+        font-size: 104px;
         line-height: 1;
         font-variant-numeric: tabular-nums;
         letter-spacing: -0.02em;
       }
-      .m-unit {
-        font-family: var(--mono);
-        font-size: 34px;
+      .r-unit {
+        grid-column: 3;
+        padding-left: 18px;
+        font-family: var(--ui);
+        font-size: 38px;
         color: var(--dim);
       }
 
-      /* ── propeller rigs ─────────────────────────────────────── */
-      .props {
-        position: relative;
-        flex: 1;
-      }
-      .rig {
-        position: absolute;
-        left: 100px;
-        width: 700px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 20px;
-      }
-      #rigA {
-        top: 22px;
-      }
-      #rigB {
-        top: 682px;
-      }
-      .chip {
-        height: 58px;
-        padding: 0 28px;
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        border: 2px solid var(--line);
-        border-radius: 29px;
-        font-size: 34px;
-        font-weight: 700;
-      }
-      .chip-a {
-        color: var(--chip-a);
-      }
-      .chip-b {
-        color: var(--chip-b);
-      }
-      .chip i {
-        width: 14px;
-        height: 14px;
-        border-radius: 50%;
-        background: currentColor;
-      }
+      /* ── the propeller ──────────────────────────────────────── */
       .prop {
-        width: 560px;
-        height: 560px;
+        position: absolute;
+        left: 200px;
+        top: 350px;
+        width: 680px;
+        height: 680px;
       }
       .prop-svg {
         display: block;
-        width: 560px;
-        height: 560px;
+        width: 680px;
+        height: 680px;
       }
       /* the accumulation buffer: sub-frame copies are summed, not stacked.
-         blur(3px) is a dither pass, applied equally to both rigs, that
-         dissolves the 5/255 coverage steps the 8-bit composite leaves behind. */
+         the blur is a dither pass, applied equally to both passes, that
+         dissolves the 5/255 coverage steps the 8-bit composite leaves behind.
+         2.5 user units at the 680/560 display scale ≈ 3 screen px. */
       .accum {
         isolation: isolate;
-        filter: blur(3px);
-      }
-
-      /* ── bottom slam label ──────────────────────────────────── */
-      .labelslot {
-        position: relative;
-        height: 100px;
-      }
-      .phase {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 88px;
-        font-weight: 700;
-        letter-spacing: -0.03em;
-        white-space: nowrap;
-      }
-      #L1 {
-        color: var(--cyan);
-      }
-      #L2 {
-        color: var(--warn);
-      }
-      #L3 {
-        color: var(--ink);
-      }
-      #L4 {
-        color: var(--ok);
+        filter: blur(2.5px);
       }
     </style>
   </head>
@@ -233,52 +159,37 @@
       id="stage"
       data-composition-id="main"
       data-start="0"
-      data-duration="11"
-      data-fps="30"
+      data-duration="40"
+      data-fps="24"
       data-width="1080"
-      data-height="1920"
+      data-height="1080"
     >
-      <div id="scene" class="clip" data-start="0" data-duration="11" data-track-index="1">
-        <div class="hud">3枚羽プロペラ<b>/</b>時計回り<b>/</b>30 fps でサンプリング</div>
-
+      <!-- chrome runs across both passes; the ramp is identical in each, so
+           one readout serves both -->
+      <div id="chrome" class="clip layer" data-start="0" data-duration="40" data-track-index="1">
+        <div class="hud">3枚羽プロペラ<b>/</b>24 fps<b>/</b>シャッター 360°</div>
         <div class="readout">
-          <div class="metric">
-            <div class="m-label">実際の回転</div>
-            <div class="m-row"><span id="valTrue" class="m-val">0.0</span><span class="m-unit">rev/s</span></div>
-          </div>
-          <div class="metric">
-            <div class="m-label">見かけの回転</div>
-            <div class="m-row"><span id="valApp" class="m-val">0.0</span><span class="m-unit">rev/s</span></div>
-          </div>
+          <span id="valSpeed" class="r-val">0.0</span><span class="r-unit">rev/s</span>
         </div>
+      </div>
 
-        <div class="props">
-          <div id="rigA" class="rig">
-            <div id="chipA" class="chip chip-a"><i></i>モーションブラーなし</div>
-            <div class="prop">
-              <svg class="prop-svg" viewBox="0 0 560 560">
-                <g id="accumA" class="accum" data-layout-allow-overflow="true"></g>
-                <g transform="translate(280,280)"><use href="#hub" /></g>
-              </svg>
-            </div>
-          </div>
-
-          <div id="rigB" class="rig">
-            <div id="chipB" class="chip chip-b"><i></i>モーションブラーあり</div>
-            <div class="prop">
-              <svg class="prop-svg" viewBox="0 0 560 560">
-                <g id="accumB" class="accum" data-layout-allow-overflow="true"></g>
-                <g transform="translate(280,280)"><use href="#hub" /></g>
-              </svg>
-            </div>
-          </div>
+      <!-- pass 1: no motion blur -->
+      <div id="passA" class="clip layer" data-start="0" data-duration="20" data-track-index="2">
+        <div class="prop">
+          <svg class="prop-svg" viewBox="0 0 560 560">
+            <g id="accumA" class="accum" data-layout-allow-overflow="true"></g>
+            <g transform="translate(280,280)"><use href="#hub" /></g>
+          </svg>
         </div>
+      </div>
 
-        <div class="labelslot">
-          <div id="L1" class="phase">止まって見える</div>
-          <div id="L2" class="phase">逆回転して見える</div>
-          <div id="L3" class="phase">ブラーは誤りを消す</div>
-          <div id="L4" class="phase">動きの情報が補われる</div>
+      <!-- pass 2: the same ramp again, integrated over the shutter -->
+      <div id="passB" class="clip layer" data-start="20" data-duration="20" data-track-index="3">
+        <div class="prop">
+          <svg class="prop-svg" viewBox="0 0 560 560">
+            <g id="accumB" class="accum" data-layout-allow-overflow="true"></g>
+            <g transform="translate(280,280)"><use href="#hub" /></g>
+          </svg>
         </div>
       </div>
     </div>
@@ -287,69 +198,42 @@
       // ─────────────────────────────────────────────────────────────
       // Temporal aliasing demo. Everything below is a pure function of
       // composition time t — no clocks, no randomness, no accumulation.
+      // Two passes over the same 20s ramp: no motion blur, then motion blur.
       // ─────────────────────────────────────────────────────────────
-      const FPS = 30;
+      const FPS = 24;
       const BLADES = 3;
-      const DUR = 11;
       const PERIOD = 360 / BLADES; // 120deg — the propeller's own symmetry
-      const W_FREEZE = FPS / BLADES; // 10 rev/s -> 120deg/frame -> dead still
-      const W_REVERSE = 50 / 3; // 16.667 rev/s -> 200deg/frame -> reads as -3.33 rev/s
+      const RAMP = 20; // seconds of ramp in one pass
+      const W_MAX = 15; // rev/s reached at the end of the ramp
+      const DUR = 2 * RAMP; // crisp pass, then blurred pass
 
-      // 360deg shutter: the blurred rig integrates the full frame interval,
-      // centered on the frame time so its mean angle matches the crisp rig.
+      // Shutter angle: the fraction of the frame interval the blurred pass
+      // integrates over. 360deg = the whole of 1/24s, centered on the frame
+      // time so its mean angle still matches the crisp pass.
+      const SHUTTER = 360;
+      const OPEN = SHUTTER / 360; // duty cycle of the frame interval
       // 80 sub-frame samples: 240/80 = 3.0 exactly per 8-bit channel, so the
       // sum of N copies is exact and neither drifts in colour nor bands.
       const SAMPLES = 80;
 
-      // [t0, t1, w0, w1] — angular speed in rev/s, smoothstep between w0 and w1
-      const SEGS = [
-        [0.0, 0.8, 0, 0],
-        [0.8, 3.0, 0, W_FREEZE],
-        [3.0, 4.4, W_FREEZE, W_FREEZE],
-        [4.4, 5.0, W_FREEZE, W_REVERSE],
-        [5.0, 7.2, W_REVERSE, W_REVERSE],
-        [7.2, 8.0, W_REVERSE, W_FREEZE],
-        [8.0, 9.0, W_FREEZE, W_FREEZE],
-        [9.0, 10.1, W_FREEZE, 3.5],
-        [10.1, 11.0, 3.5, 3.5],
-      ];
+      // A linear ramp, not an ease. The aliasing period in speed is
+      // FPS / BLADES = 8 rev/s (one whole 120deg pattern period per frame);
+      // half of that is the Nyquist point. Constant acceleration spaces them
+      // evenly down the 20s:
+      //    4 rev/s (t = 5.33s)  ->  60deg/frame — half a period: the blades
+      //                             jump back and forth, direction is lost
+      //    8 rev/s (t = 10.67s) -> 120deg/frame — one whole period: dead still
+      //   12 rev/s (t = 16.0s)  -> 180deg/frame — folds to 60deg: Nyquist again
+      // Between 4 and 8 the propeller reads as running backwards; past 8 it
+      // reads forwards again, and the ramp ends at 15 rev/s = 225deg/frame,
+      // which folds to -15deg: a 1 rev/s backwards crawl at full speed.
+      const clamp = (x, lo, hi) => (x < lo ? lo : x > hi ? hi : x);
+      const speedAt = (u) => (W_MAX * clamp(u, 0, RAMP)) / RAMP;
 
-      // Cumulative revolutions at each segment boundary. The integral of a
-      // smoothstep ramp over a full segment is just its mean speed.
-      const CUM = [0];
-      for (const [t0, t1, w0, w1] of SEGS) CUM.push(CUM[CUM.length - 1] + ((t1 - t0) * (w0 + w1)) / 2);
-
-      const segIndexAt = (t) => {
-        for (let i = 0; i < SEGS.length - 1; i++) if (t < SEGS[i][1]) return i;
-        return SEGS.length - 1;
-      };
-      const clamp01 = (u) => (u < 0 ? 0 : u > 1 ? 1 : u);
-
-      // Exact integral of the smoothstep speed ramp: closed form, so any
-      // sub-frame time can be evaluated directly.
-      function revsAt(t) {
-        if (t <= 0) return 0;
-        const i = segIndexAt(t);
-        const [t0, t1, w0, w1] = SEGS[i];
-        const T = t1 - t0;
-        const u = clamp01((t - t0) / T);
-        return CUM[i] + T * (w0 * u + (w1 - w0) * (u * u * u - 0.5 * u * u * u * u));
-      }
-
-      function speedAt(t) {
-        const i = segIndexAt(t);
-        const [t0, t1, w0, w1] = SEGS[i];
-        const u = clamp01((t - t0) / (t1 - t0));
-        return w0 + (w1 - w0) * u * u * (3 - 2 * u);
-      }
-
-      // What a 30 fps sampler reports: the per-frame step folded into the
-      // propeller's own symmetry, then read back as a speed.
-      function apparentAt(t) {
-        const step = (speedAt(t) * 360) / FPS;
-        let a = ((step % PERIOD) + PERIOD) % PERIOD;
-        if (a > PERIOD / 2) a -= PERIOD;
-        return (a / 360) * FPS;
+      // Exact integral of speedAt, so any sub-frame time evaluates directly.
+      function revsAt(u) {
+        const c = clamp(u, 0, RAMP);
+        return (W_MAX * c * c) / (2 * RAMP) + (u > RAMP ? W_MAX * (u - RAMP) : 0);
       }
 
       // ── build the accumulation buffers ──────────────────────────
@@ -381,26 +265,22 @@
       const setAngle = (g, deg) => {
         let a = deg % PERIOD;
         if (a < 0) a += PERIOD;
-        if (a > PERIOD - 1e-6) a = 0; // 6840deg lands a hair under 57 periods
+        if (a > PERIOD - 1e-6) a = 0; // a whole number of periods can land a hair under
         g.setAttribute("transform", "translate(280,280) rotate(" + a.toFixed(4) + ")");
       };
 
-      const valTrue = document.getElementById("valTrue");
-      const valApp = document.getElementById("valApp");
-      const COL_OK = "#7be08c"; // --ok
-      const COL_WARN = "#ff6a3d"; // --warn
+      const valSpeed = document.getElementById("valSpeed");
 
       function paint(t) {
-        setAngle(layersA[0], revsAt(t) * 360);
+        // local time inside whichever pass is on screen; the framework owns
+        // which of the two clips is visible, this just feeds them both
+        const u = t < RAMP ? t : t - RAMP;
+        setAngle(layersA[0], revsAt(u) * 360);
         for (let j = 0; j < SAMPLES; j++) {
-          const dt = ((j + 0.5) / SAMPLES - 0.5) / FPS;
-          setAngle(layersB[j], revsAt(t + dt) * 360);
+          const dt = (((j + 0.5) / SAMPLES - 0.5) * OPEN) / FPS;
+          setAngle(layersB[j], revsAt(u + dt) * 360);
         }
-        const w = speedAt(t);
-        const a = apparentAt(t);
-        valTrue.textContent = w.toFixed(1);
-        valApp.textContent = a.toFixed(1);
-        valApp.style.color = Math.abs(a - w) < 0.25 ? COL_OK : COL_WARN;
+        valSpeed.textContent = speedAt(u).toFixed(1);
       }
       paint(0); // seed frame 0 before the timeline exists
 
@@ -410,31 +290,6 @@
 
       const drv = { t: 0 };
       tl.to(drv, { t: DUR, duration: DUR, ease: "none", onUpdate: () => paint(drv.t) }, 0);
-
-      // Act 2: the crisp rig rises to make room, the blurred twin slides in.
-      tl.fromTo("#rigA", { y: 336 }, { y: 0, duration: 0.7, ease: "power3.inOut" }, 6.3);
-      tl.fromTo("#chipA", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4, ease: "power2.out" }, 6.6);
-      tl.fromTo(
-        "#rigB",
-        { autoAlpha: 0, y: 70 },
-        { autoAlpha: 1, y: 0, duration: 0.6, ease: "power3.out" },
-        6.5,
-      );
-      tl.fromTo("#chipB", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4, ease: "power2.out" }, 6.8);
-
-      function slam(sel, tin, tout) {
-        tl.fromTo(
-          sel,
-          { autoAlpha: 0, y: 26, scale: 0.94 },
-          { autoAlpha: 1, y: 0, scale: 1, duration: 0.34, ease: "power4.out" },
-          tin,
-        );
-        if (tout !== null) tl.to(sel, { autoAlpha: 0, duration: 0.24, ease: "power2.in" }, tout);
-      }
-      slam("#L1", 3.25, 4.35);
-      slam("#L2", 5.15, 6.25);
-      slam("#L3", 8.1, 9.05);
-      slam("#L4", 10.15, null);
 
       tl.seek(0);
       window.__timelines["main"] = tl;
