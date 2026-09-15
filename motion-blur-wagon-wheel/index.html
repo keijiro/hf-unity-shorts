@@ -2,18 +2,14 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=1080, height=1080" />
+    <meta name="viewport" content="width=2160, height=2160" />
     <title>Wagon-wheel effect — motion blur insert</title>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
     <style>
       :root {
         --bg: #06080c;
         --ink: #eef4fb;
-        --dim: #8a98ab;
-        --cyan: #35d3f5;
-        /* Google Sans carries no CJK subset, so Noto Sans JP sits behind it
-           purely as the fallback for the Japanese glyphs in the HUD. */
-        --ui: "Google Sans", "Noto Sans JP", sans-serif;
+        --ui: "Google Sans", sans-serif;
       }
 
       * {
@@ -23,8 +19,8 @@
       }
       html,
       body {
-        width: 1080px;
-        height: 1080px;
+        width: 2160px;
+        height: 2160px;
         overflow: hidden;
         background: var(--bg);
       }
@@ -35,8 +31,8 @@
 
       #stage {
         position: relative;
-        width: 1080px;
-        height: 1080px;
+        width: 2160px;
+        height: 2160px;
         background: var(--bg);
       }
 
@@ -47,75 +43,47 @@
         inset: 0;
       }
 
-      /* ── top chrome ─────────────────────────────────────────── */
-      .hud {
-        position: absolute;
-        top: 58px;
-        left: 0;
-        width: 1080px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 14px;
-        font-family: var(--ui);
-        font-size: 28px;
-        letter-spacing: 0.02em;
-        color: var(--dim);
-      }
-      .hud b {
-        color: var(--cyan);
-        font-weight: 700;
-      }
-
       /* ── live readout: the real rotation rate, bare ──────────── */
-      /* 1fr auto 1fr: the numeral sits in the middle column, so it stays
-         centred on the frame whatever its digit count, and the unit rides in
-         the right column at a constant gap instead of dragging the pair
-         off-centre. Google Sans figures are uniform-width, so the counter
-         does not jitter between frames. */
+      /* Right-aligned: the numeral's right edge sits on the propeller box's
+         right edge (2160 - 400), the same 400px inset the propeller keeps on
+         its left. Google Sans figures are uniform-width, so the counter does
+         not jitter between frames — right-aligned, the digits stay put and
+         only the tens column appears. */
       .readout {
         position: absolute;
-        top: 150px;
+        top: 300px;
         left: 0;
-        width: 1080px;
-        display: grid;
-        grid-template-columns: 1fr auto 1fr;
-        align-items: baseline;
+        width: 2160px;
+        padding-right: 400px;
+        text-align: right;
       }
       .r-val {
-        grid-column: 2;
         font-family: var(--ui);
         font-weight: 700;
-        font-size: 104px;
+        font-size: 208px;
         line-height: 1;
         font-variant-numeric: tabular-nums;
         letter-spacing: -0.02em;
-      }
-      .r-unit {
-        grid-column: 3;
-        padding-left: 18px;
-        font-family: var(--ui);
-        font-size: 38px;
-        color: var(--dim);
       }
 
       /* ── the propeller ──────────────────────────────────────── */
       .prop {
         position: absolute;
-        left: 200px;
-        top: 350px;
-        width: 680px;
-        height: 680px;
+        left: 400px;
+        top: 700px;
+        width: 1360px;
+        height: 1360px;
       }
       .prop-svg {
         display: block;
-        width: 680px;
-        height: 680px;
+        width: 1360px;
+        height: 1360px;
       }
       /* the accumulation buffer: sub-frame copies are summed, not stacked.
          the blur is a dither pass, applied equally to both passes, that
          dissolves the 5/255 coverage steps the 8-bit composite leaves behind.
-         2.5 user units at the 680/560 display scale ≈ 3 screen px. */
+         the radius is in SVG user units, so it tracks the display scale:
+         2.5 user units at 1360/560 ≈ 6 screen px on the 2160 canvas. */
       .accum {
         isolation: isolate;
         filter: blur(2.5px);
@@ -159,22 +127,19 @@
       id="stage"
       data-composition-id="main"
       data-start="0"
-      data-duration="40"
+      data-duration="24"
       data-fps="24"
-      data-width="1080"
-      data-height="1080"
+      data-width="2160"
+      data-height="2160"
     >
       <!-- chrome runs across both passes; the ramp is identical in each, so
            one readout serves both -->
-      <div id="chrome" class="clip layer" data-start="0" data-duration="40" data-track-index="1">
-        <div class="hud">3枚羽プロペラ<b>/</b>24 fps<b>/</b>シャッター 360°</div>
-        <div class="readout">
-          <span id="valSpeed" class="r-val">0.0</span><span class="r-unit">rev/s</span>
-        </div>
+      <div id="chrome" class="clip layer" data-start="0" data-duration="24" data-track-index="1">
+        <div class="readout"><span id="valSpeed" class="r-val">0.0</span></div>
       </div>
 
       <!-- pass 1: no motion blur -->
-      <div id="passA" class="clip layer" data-start="0" data-duration="20" data-track-index="2">
+      <div id="passA" class="clip layer" data-start="0" data-duration="15" data-track-index="2">
         <div class="prop">
           <svg class="prop-svg" viewBox="0 0 560 560">
             <g id="accumA" class="accum" data-layout-allow-overflow="true"></g>
@@ -184,7 +149,7 @@
       </div>
 
       <!-- pass 2: the same ramp again, integrated over the shutter -->
-      <div id="passB" class="clip layer" data-start="20" data-duration="20" data-track-index="3">
+      <div id="passB" class="clip layer" data-start="15" data-duration="9" data-track-index="3">
         <div class="prop">
           <svg class="prop-svg" viewBox="0 0 560 560">
             <g id="accumB" class="accum" data-layout-allow-overflow="true"></g>
@@ -198,14 +163,20 @@
       // ─────────────────────────────────────────────────────────────
       // Temporal aliasing demo. Everything below is a pure function of
       // composition time t — no clocks, no randomness, no accumulation.
-      // Two passes over the same 20s ramp: no motion blur, then motion blur.
+      // Two passes over the same 0 -> 15 rev/s ramp: no motion blur held for
+      // 15s, then motion blur replayed faster, in 9s.
       // ─────────────────────────────────────────────────────────────
       const FPS = 24;
       const BLADES = 3;
       const PERIOD = 360 / BLADES; // 120deg — the propeller's own symmetry
-      const RAMP = 20; // seconds of ramp in one pass
-      const W_MAX = 15; // rev/s reached at the end of the ramp
-      const DUR = 2 * RAMP; // crisp pass, then blurred pass
+      // Each pass sweeps the identical 0 -> W_MAX speed range; only the time
+      // it is given differs. The crisp pass gets the long look because every
+      // aliasing landmark has to be read off it; the blurred pass is the
+      // answer, so it replays the same sweep at 15/9 the acceleration.
+      const RAMP_A = 15; // seconds of ramp in the crisp pass
+      const RAMP_B = 9; // seconds of ramp in the blurred pass
+      const W_MAX = 15; // rev/s reached at the end of either ramp
+      const DUR = RAMP_A + RAMP_B; // crisp pass, then blurred pass
 
       // Shutter angle: the fraction of the frame interval the blurred pass
       // integrates over. 360deg = the whole of 1/24s, centered on the frame
@@ -218,22 +189,24 @@
 
       // A linear ramp, not an ease. The aliasing period in speed is
       // FPS / BLADES = 8 rev/s (one whole 120deg pattern period per frame);
-      // half of that is the Nyquist point. Constant acceleration spaces them
-      // evenly down the 20s:
-      //    4 rev/s (t = 5.33s)  ->  60deg/frame — half a period: the blades
-      //                             jump back and forth, direction is lost
-      //    8 rev/s (t = 10.67s) -> 120deg/frame — one whole period: dead still
-      //   12 rev/s (t = 16.0s)  -> 180deg/frame — folds to 60deg: Nyquist again
+      // half of that is the Nyquist point. The landmarks sit at fixed speeds,
+      // so constant acceleration spaces them evenly down whichever pass:
+      //    4 rev/s  ->  60deg/frame — half a period: the blades jump back
+      //                 and forth, direction is lost (A 4.0s, B 2.4s)
+      //    8 rev/s  -> 120deg/frame — one whole period: dead still
+      //                 (A 8.0s, B 4.8s)
+      //   12 rev/s  -> 180deg/frame — folds to 60deg: Nyquist again
+      //                 (A 12.0s, B 7.2s)
       // Between 4 and 8 the propeller reads as running backwards; past 8 it
       // reads forwards again, and the ramp ends at 15 rev/s = 225deg/frame,
       // which folds to -15deg: a 1 rev/s backwards crawl at full speed.
       const clamp = (x, lo, hi) => (x < lo ? lo : x > hi ? hi : x);
-      const speedAt = (u) => (W_MAX * clamp(u, 0, RAMP)) / RAMP;
+      const speedAt = (u, ramp) => (W_MAX * clamp(u, 0, ramp)) / ramp;
 
       // Exact integral of speedAt, so any sub-frame time evaluates directly.
-      function revsAt(u) {
-        const c = clamp(u, 0, RAMP);
-        return (W_MAX * c * c) / (2 * RAMP) + (u > RAMP ? W_MAX * (u - RAMP) : 0);
+      function revsAt(u, ramp) {
+        const c = clamp(u, 0, ramp);
+        return (W_MAX * c * c) / (2 * ramp) + (u > ramp ? W_MAX * (u - ramp) : 0);
       }
 
       // ── build the accumulation buffers ──────────────────────────
@@ -272,15 +245,18 @@
       const valSpeed = document.getElementById("valSpeed");
 
       function paint(t) {
-        // local time inside whichever pass is on screen; the framework owns
-        // which of the two clips is visible, this just feeds them both
-        const u = t < RAMP ? t : t - RAMP;
-        setAngle(layersA[0], revsAt(u) * 360);
+        // local time inside whichever pass is on screen, and that pass's own
+        // ramp length; the framework owns which of the two clips is visible,
+        // this just feeds them both
+        const inA = t < RAMP_A;
+        const u = inA ? t : t - RAMP_A;
+        const ramp = inA ? RAMP_A : RAMP_B;
+        setAngle(layersA[0], revsAt(u, RAMP_A) * 360);
         for (let j = 0; j < SAMPLES; j++) {
           const dt = (((j + 0.5) / SAMPLES - 0.5) * OPEN) / FPS;
-          setAngle(layersB[j], revsAt(u + dt) * 360);
+          setAngle(layersB[j], revsAt(u + dt, RAMP_B) * 360);
         }
-        valSpeed.textContent = speedAt(u).toFixed(1);
+        valSpeed.textContent = speedAt(u, ramp).toFixed(1);
       }
       paint(0); // seed frame 0 before the timeline exists
 

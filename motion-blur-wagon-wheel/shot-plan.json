@@ -1,14 +1,14 @@
 {
   "category": "custom-diagram",
   "note": "No form category fits: this is a hand-authored physical demo (temporal aliasing / wagon-wheel effect). Closest relative is `charts` (data-driven readout) but the hero is a simulated rotating object.",
-  "duration_s": 40.0,
+  "duration_s": 24.0,
   "fps": 24,
   "canvas": {
-    "w": 1080,
-    "h": 1080,
+    "w": 2160,
+    "h": 2160,
     "aspect": "1:1"
   },
-  "style": "technical instrument panel on near-black. One propeller, centre frame, with a bare numeric readout of its real rotation rate. Two sequential 20s passes over the same ramp: no motion blur, then motion blur. No captions, no chips. Silent insert cut for a motion-blur explainer.",
+  "style": "technical instrument panel on near-black. One propeller, centre frame, with a bare numeric readout of its real rotation rate in rev/s — no caption line, no unit label. Two sequential passes over the same 0 -> 15 rev/s ramp: 15s without motion blur, then 9s with it. No captions, no chips. Silent insert cut for a motion-blur explainer.",
   "palette": [
     "#06080c",
     "#eef4fb",
@@ -17,7 +17,7 @@
     "#ff6a3d",
     "#7be08c"
   ],
-  "font": "Google Sans (Noto Sans JP as the CJK fallback — Google Sans has no CJK subset)",
+  "font": "Google Sans (no CJK text remains in the composition)",
   "export": "mp4",
   "asset_needs": [],
   "content": {
@@ -28,34 +28,34 @@
       "shutter": "360 deg (full frame interval, centered on the frame time)",
       "blur_samples": 80,
       "blur_method": "in-composition accumulation: 80 sub-frame copies at opacity 1/80 composited with mix-blend-mode: plus-lighter over black = exact arithmetic mean (box filter). blade fill 240/255 so 240/80 = 3.0 exactly per 8-bit channel",
-      "ramp": "linear 0 -> 15 rev/s over 20 s, repeated identically in both passes",
-      "aliasing_derivation": "fps/blades = 8 rev/s = 120deg/frame = one whole pattern period, so the crisp pass is dead still only at 8 rev/s (t=10.67s). Half that, 4 rev/s = 60deg/frame, is Nyquist: the blades jump back and forth and direction is lost (t=5.33s, and again at 12 rev/s whose 180deg/frame folds to 60deg, t=16.0s). Between 4 and 8 rev/s the propeller reads as running backwards. The ramp ends at 15 rev/s = 225deg/frame, folding to -15deg: a 1 rev/s backwards crawl at full speed.",
+      "ramp": "linear 0 -> 15 rev/s in both passes; 15 s of it in the crisp pass, the same sweep replayed in 9 s in the blurred pass",
+      "aliasing_derivation": "fps/blades = 8 rev/s = 120deg/frame = one whole pattern period, so the crisp pass is dead still only at 8 rev/s. Half that, 4 rev/s = 60deg/frame, is Nyquist: the blades jump back and forth and direction is lost, and again at 12 rev/s whose 180deg/frame folds to 60deg. The landmarks sit at fixed speeds, so they fall at t=4.0/8.0/12.0s in the 15 s crisp pass and t=2.4/4.8/7.2s in the 9 s blurred pass. Between 4 and 8 rev/s the propeller reads as running backwards. The ramp ends at 15 rev/s = 225deg/frame, folding to -15deg: a 1 rev/s backwards crawl at full speed.",
       "aliasing_period_rev_s": 8.0
     },
     "acts": [
       {
         "id": "passA",
         "start": 0.0,
-        "end": 20.0,
-        "beat": "No motion blur. Propeller ramps linearly 0 -> 15 rev/s: direction is lost at 4 rev/s, it runs visibly backwards from 4 to 8, goes dead still at 8, reads forwards again, loses direction once more at 12, and ends crawling backwards at an apparent 1 rev/s."
+        "end": 15.0,
+        "beat": "No motion blur, held for 15 s so every aliasing landmark can be read. Propeller ramps linearly 0 -> 15 rev/s: direction is lost at 4 rev/s, it runs visibly backwards from 4 to 8, goes dead still at 8, reads forwards again, loses direction once more at 12, and ends crawling backwards at an apparent 1 rev/s."
       },
       {
         "id": "passB",
-        "start": 20.0,
-        "end": 40.0,
-        "beat": "Motion blur. The identical ramp again, integrated over a 360deg shutter — the smear grows with the real speed, the backwards crawl and the false freeze are gone, and at 8 rev/s and above the propeller is an honest uniform disc."
+        "start": 15.0,
+        "end": 24.0,
+        "beat": "Motion blur. The same 0 -> 15 rev/s sweep replayed in 9 s — the answer needs less screen time than the question — integrated over a 360deg shutter: the smear grows with the real speed, the backwards crawl and the false freeze are gone, and at 8 rev/s and above the propeller is an honest uniform disc."
       }
     ],
     "speed_profile": [
       [
         0.0,
-        20.0,
+        15.0,
         0,
         15.0
       ],
       [
-        20.0,
-        40.0,
+        15.0,
+        24.0,
         0,
         15.0
       ]
