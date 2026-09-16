@@ -112,6 +112,13 @@
         fill: var(--accent);
         mix-blend-mode: plus-lighter;
       }
+      /* the exposure itself, seen as light: while the shutter is open the
+         frame in the gate is being written to, so it carries light — the
+         inside of the frame lifts to a white bloom and the amber ball in it
+         goes hot. added, not laid over, so nothing it covers is lost. */
+      .fflash {
+        mix-blend-mode: plus-lighter;
+      }
     </style>
   </head>
   <body>
@@ -127,6 +134,11 @@
         <mask id="stripFade" maskUnits="userSpaceOnUse" x="1390" y="0" width="720" height="2160">
           <rect x="1390" y="0" width="720" height="2160" fill="url(#fadeGrad)" />
         </mask>
+        <radialGradient id="flashGrad" cx="0.5" cy="0.5" r="0.78">
+          <stop offset="0" stop-color="#ffffff" stop-opacity="1" />
+          <stop offset="0.55" stop-color="#ffffff" stop-opacity="0.66" />
+          <stop offset="1" stop-color="#dceaff" stop-opacity="0.48" />
+        </radialGradient>
         <clipPath id="frameClip">
           <rect x="0" y="0" width="640" height="480" rx="12" />
         </clipPath>
@@ -251,6 +263,16 @@
             dots.push(c);
           }
           inner.appendChild(acc);
+          const flash = el("rect", {
+            x: 0,
+            y: 0,
+            width: FRAME_W,
+            height: FRAME_H,
+            fill: "url(#flashGrad)",
+            opacity: 0,
+            class: "fflash",
+          });
+          inner.appendChild(flash);
           const glow = el("rect", {
             x: 0,
             y: 0,
@@ -263,7 +285,7 @@
           g.appendChild(inner);
           g.appendChild(glow);
           strip.appendChild(g);
-          slots.push({ g: g, box: box, glow: glow, dots: dots, key: "" });
+          slots.push({ g: g, box: box, glow: glow, flash: flash, dots: dots, key: "" });
         }
         svg.appendChild(strip);
 
@@ -422,12 +444,19 @@
         setEye(P, open);
       }
 
+      // `glow` is how far the shutter is open on THIS frame: 0 everywhere but
+      // the gate. it drives the amber border and the white bloom together, so
+      // the highlight lasts exactly as long as the exposure does — an instant
+      // in pass A, half the frame interval in pass B.
+      const FLASH = 0.33; // peak white lift inside the frame
       function dressSlot(slot, exposed, glow) {
         slot.box.setAttribute(
           "stroke",
-          "rgba(238,244,251," + (0.17 + 0.17 * exposed).toFixed(3) + ")"
+          "rgba(238,244,251," + (0.17 + 0.17 * exposed + 0.4 * glow).toFixed(3) + ")"
         );
         slot.glow.setAttribute("opacity", glow.toFixed(3));
+        slot.glow.setAttribute("stroke-width", (5 + 4 * glow).toFixed(2));
+        slot.flash.setAttribute("opacity", (FLASH * glow).toFixed(4));
       }
 
       // ── pass A: the shutter is an instant ───────────────────────
