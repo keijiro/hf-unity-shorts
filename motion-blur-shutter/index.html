@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=2160, height=2160">
+    <title>Shutter — instant sample vs. open shutter</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --bg: #000000;
+        --ink: #eef4fb;
+        --accent: #ff9933;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 2160px;
+        height: 2160px;
+        overflow: hidden;
+        background: var(--bg);
+      }
+      /* no type in this insert — the narration carries every label */
+      body {
+        color: var(--ink);
+      }
+
+      #stage {
+        position: relative;
+        width: 2160px;
+        height: 2160px;
+        background: var(--bg);
+      }
+
+      /* both passes are the same full-frame box, so the cut between them
+         lands every element in exactly the same place */
+      .layer {
+        position: absolute;
+        inset: 0;
+      }
+      .scene {
+        display: block;
+        width: 2160px;
+        height: 2160px;
+      }
+
+      /* ── left: the world, rendered continuously ─────────────── */
+      .sbox {
+        fill: rgba(238, 244, 251, 0.03);
+        stroke: rgba(238, 244, 251, 0.2);
+        stroke-width: 3;
+      }
+      .sground {
+        stroke: rgba(238, 244, 251, 0.3);
+        stroke-width: 4;
+        stroke-linecap: round;
+      }
+      .sball {
+        fill: var(--accent);
+      }
+
+      /* ── centre: the shutter ────────────────────────────────── */
+      .sclera {
+        fill: rgba(238, 244, 251, 0.12);
+      }
+      .iris {
+        fill: #35465a;
+        stroke: rgba(238, 244, 251, 0.45);
+        stroke-width: 4;
+      }
+      .pupil {
+        fill: var(--bg);
+      }
+      .lid {
+        fill: none;
+        stroke: var(--ink);
+        stroke-width: 11;
+        stroke-linejoin: round;
+        stroke-linecap: round;
+      }
+
+      /* ── right: the frames the shutter writes into ──────────── */
+      .fbox {
+        fill: #0a0e15;
+        stroke: rgba(238, 244, 251, 0.18);
+        stroke-width: 3;
+      }
+      .fglow {
+        fill: none;
+        stroke: var(--accent);
+        stroke-width: 5;
+      }
+      .fground {
+        stroke: rgba(238, 244, 251, 0.18);
+        stroke-width: 3;
+        stroke-linecap: round;
+      }
+      /* the exposure buffer: sub-shutter copies are summed, not stacked.
+         #ff9933 is (255,153,51), so 51 samples at 1/51 opacity contribute
+         exactly (5,3,1) each — the sum is bit-exact and never bands.
+         the small blur is a dither pass that dissolves the seams between
+         adjacent samples along the streak. */
+      .facc {
+        isolation: isolate;
+        filter: blur(1.2px);
+      }
+      .fball {
+        fill: var(--accent);
+        mix-blend-mode: plus-lighter;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- shared paint server + clip geometry, instanced by both passes -->
+    <svg id="lib" width="0" height="0" aria-hidden="true" style="position: absolute">
+      <defs>
+        <linearGradient id="fadeGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#000000" />
+          <stop offset="0.07" stop-color="#ffffff" />
+          <stop offset="0.93" stop-color="#ffffff" />
+          <stop offset="1" stop-color="#000000" />
+        </linearGradient>
+        <mask id="stripFade" maskUnits="userSpaceOnUse" x="1390" y="0" width="720" height="2160">
+          <rect x="1390" y="0" width="720" height="2160" fill="url(#fadeGrad)" />
+        </mask>
+        <clipPath id="frameClip">
+          <rect x="0" y="0" width="640" height="480" rx="12" />
+        </clipPath>
+      </defs>
+    </svg>
+
+    <div id="stage" data-composition-id="main" data-start="0" data-duration="40" data-fps="60" data-width="2160" data-height="2160">
+      <!-- pass 1: the shutter is an instant. the world freezes while it is
+           open, so the frame it writes is a single crisp sample. -->
+      <div id="passA" class="clip layer" data-start="0" data-duration="20" data-track-index="0"></div>
+
+      <!-- pass 2: the identical world motion, replayed. the shutter is held
+           open for half the frame interval and the world keeps moving, so the
+           frame accumulates a streak. the film is held still in the gate while
+           it is open and pulled on while it is shut. -->
+      <div id="passB" class="clip layer" data-start="20" data-duration="20" data-track-index="1"></div>
+    </div>
+
+    <script>
+      // ─────────────────────────────────────────────────────────────
+      // Everything below is a pure function of composition time t —
+      // no clocks, no randomness, no accumulated state. Both passes run
+      // the SAME world interval (w = 0.6 -> 16.6) over the SAME sixteen
+      // captures, so the only difference the viewer sees is the shutter.
+      // ─────────────────────────────────────────────────────────────
+
+      const PART = 20; // seconds of screen time per pass
+      const DUR = PART * 2;
+
+      const W = 1.0; // world seconds between captures
+      const T_CYC = 1.25; // screen seconds between captures
+      const T_HOLD = 0.25; // pass A: how long the world is frozen, open shutter
+      const T_MOVE = T_CYC - T_HOLD;
+      const SHUT = 0.5 * W; // pass B: a 180-degree shutter
+      const W_START = 0.6 * W; // world instant both passes open on
+      const A_SHIFT = (W_START / W) * T_MOVE; // 0.6s: drops t=0 partway through a travel
+
+      // 51 sub-shutter samples — see the .facc note in the stylesheet.
+      const SAMPLES = 51;
+
+      // ── layout ──────────────────────────────────────────────────
+      const CY = 1080;
+      const STAGE_X = 90,
+        STAGE_Y = 705,
+        STAGE_W = 1000,
+        STAGE_H = 750;
+      const GROUND_Y = 1360; // the floor the ball bounces on, absolute
+      const BALL_R = 52;
+      const X_MIN = STAGE_X + 85,
+        X_MAX = STAGE_X + STAGE_W - 85;
+
+      const EYE_X = 1260;
+      const STRIP_X = 1430,
+        FRAME_W = 640,
+        FRAME_H = 480,
+        PITCH = 544;
+      const SLOTS = 8; // enough to cover the canvas plus one frame off each end
+
+      // the frames are the stage at 2/3 scale, so a captured position maps
+      // straight across with one multiply
+      const K = FRAME_W / STAGE_W;
+      const GROUND_F = (GROUND_Y - STAGE_Y) * K;
+      const BALL_RF = BALL_R * K;
+
+      // ── the world: a ball bouncing in a box ─────────────────────
+      const BOUNCE = 3.0; // world seconds per bounce
+      const TRAVEL = 7.0; // world seconds per left-right round trip
+      const APEX = 420; // apex height above the floor
+
+      const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
+      const smooth = (x) => {
+        const u = clamp(x, 0, 1);
+        return u * u * (3 - 2 * u);
+      };
+      const wrap = (x, m) => ((x % m) + m) % m;
+
+      function ballPos(w) {
+        // vertical: a gravity parabola, apex mid-bounce, full speed at the
+        // floor — so the streak length varies across the bounce
+        const s = (2 * wrap(w, BOUNCE)) / BOUNCE - 1;
+        const y = GROUND_Y - BALL_R - APEX * (1 - s * s);
+        // horizontal: constant speed, reflected off the side walls
+        const f = (wrap(w, TRAVEL) / TRAVEL) * 2;
+        const g = f <= 1 ? f : 2 - f;
+        return { x: X_MIN + g * (X_MAX - X_MIN), y: y };
+      }
+
+      // ── scene construction ──────────────────────────────────────
+      const NS = "http://www.w3.org/2000/svg";
+      const el = (n, a) => {
+        const e = document.createElementNS(NS, n);
+        for (const k in a) e.setAttribute(k, a[k]);
+        return e;
+      };
+
+      function buildScene(host, id, samples) {
+        const svg = el("svg", { class: "scene", viewBox: "0 0 2160 2160" });
+
+        // ── the film strip ──
+        const strip = el("g", { mask: "url(#stripFade)" });
+        strip.setAttribute("data-layout-allow-overflow", "true");
+        const slots = [];
+        for (let i = 0; i < SLOTS; i++) {
+          const g = el("g", {});
+          const box = el("rect", {
+            x: 0,
+            y: 0,
+            width: FRAME_W,
+            height: FRAME_H,
+            rx: 12,
+            class: "fbox",
+          });
+          const inner = el("g", { "clip-path": "url(#frameClip)" });
+          inner.appendChild(
+            el("line", { x1: 26, y1: GROUND_F, x2: FRAME_W - 26, y2: GROUND_F, class: "fground" })
+          );
+          const acc = el("g", { class: "facc" });
+          const dots = [];
+          for (let j = 0; j < samples; j++) {
+            const c = el("circle", { r: BALL_RF, cx: 0, cy: 0, class: "fball" });
+            acc.appendChild(c);
+            dots.push(c);
+          }
+          inner.appendChild(acc);
+          const glow = el("rect", {
+            x: 0,
+            y: 0,
+            width: FRAME_W,
+            height: FRAME_H,
+            rx: 12,
+            class: "fglow",
+          });
+          g.appendChild(box);
+          g.appendChild(inner);
+          g.appendChild(glow);
+          strip.appendChild(g);
+          slots.push({ g: g, box: box, glow: glow, dots: dots, key: "" });
+        }
+        svg.appendChild(strip);
+
+        // ── the stage ──
+        const st = el("g", {});
+        st.appendChild(
+          el("rect", {
+            x: STAGE_X,
+            y: STAGE_Y,
+            width: STAGE_W,
+            height: STAGE_H,
+            rx: 20,
+            class: "sbox",
+          })
+        );
+        st.appendChild(
+          el("line", {
+            x1: STAGE_X + 36,
+            y1: GROUND_Y,
+            x2: STAGE_X + STAGE_W - 36,
+            y2: GROUND_Y,
+            class: "sground",
+          })
+        );
+        const ball = el("circle", { r: BALL_R, cx: 0, cy: 0, class: "sball" });
+        st.appendChild(ball);
+        svg.appendChild(st);
+
+        // ── the eye ──
+        // one path drives both the lid outline and the clip on the eyeball,
+        // so closing it all the way collapses the almond to a single line.
+        const eye = el("g", { transform: "translate(" + EYE_X + "," + CY + ")" });
+        const clipId = id + "Lid";
+        const cp = el("clipPath", { id: clipId });
+        const cpath = el("path", { d: "" });
+        cp.appendChild(cpath);
+        eye.appendChild(cp);
+        const ball2 = el("g", { "clip-path": "url(#" + clipId + ")" });
+        ball2.appendChild(el("rect", { x: -150, y: -120, width: 300, height: 240, class: "sclera" }));
+        ball2.appendChild(el("circle", { r: 54, cx: 0, cy: 6, class: "iris" }));
+        ball2.appendChild(el("circle", { r: 24, cx: 0, cy: 6, class: "pupil" }));
+        eye.appendChild(ball2);
+        const lid = el("path", { d: "", class: "lid" });
+        eye.appendChild(lid);
+        svg.appendChild(eye);
+
+        host.appendChild(svg);
+        return { ball: ball, lid: lid, cpath: cpath, slots: slots };
+      }
+
+      const A = buildScene(document.getElementById("passA"), "a", 1);
+      const B = buildScene(document.getElementById("passB"), "b", SAMPLES);
+
+      // ── shared painters ─────────────────────────────────────────
+      const LID_R = 140; // half-width of the aperture
+      const LID_UP = 64; // how far the upper lid lifts, fully open
+      const LID_DN = 54; // how far the lower lid drops
+      const LID_REST = 24; // the shut lid still bows, so it reads as an eye
+
+      function setEye(P, open) {
+        const hu = open * LID_UP;
+        const hl = LID_REST + open * LID_DN;
+        const d =
+          "M " +
+          -LID_R +
+          " 0 Q 0 " +
+          (-2 * hu).toFixed(2) +
+          " " +
+          LID_R +
+          " 0 Q 0 " +
+          (2 * hl).toFixed(2) +
+          " " +
+          -LID_R +
+          " 0 Z";
+        P.lid.setAttribute("d", d);
+        P.cpath.setAttribute("d", d);
+      }
+
+      // `scroll` is the strip position in frames: the frame sitting in the gate
+      function placeSlot(slot, m, scroll) {
+        slot.g.setAttribute(
+          "transform",
+          "translate(" + STRIP_X + "," + (CY - FRAME_H / 2 + (m - scroll) * PITCH).toFixed(2) + ")"
+        );
+      }
+
+      // pass B only. the world runs on without stopping, but the film does not:
+      // it is held dead still in the gate for as long as the shutter is open,
+      // then pulled to the next frame while the shutter is shut — the
+      // intermittent movement of a real camera. pass A needs none of this,
+      // because there the whole world freezes and the strip freezes with it.
+      const OPEN_FRAC = SHUT / W;
+      function scrollB(w) {
+        const m = Math.floor(w / W + 1e-9);
+        const r = w / W - m;
+        if (r <= OPEN_FRAC) return m; // parked, exposing
+        return m + smooth((r - OPEN_FRAC) / (1 - OPEN_FRAC)); // pulled down
+      }
+
+      // pass A writes one crisp sample; `alpha` is the burn-in ramp
+      function paintSlotA(slot, m, alpha) {
+        const key = m + ":" + alpha.toFixed(3);
+        if (slot.key === key) return;
+        slot.key = key;
+        const c = slot.dots[0];
+        if (alpha <= 0) {
+          c.setAttribute("opacity", "0");
+          return;
+        }
+        const p = ballPos(m * W);
+        c.setAttribute("opacity", alpha.toFixed(3));
+        c.setAttribute(
+          "transform",
+          "translate(" +
+            ((p.x - STAGE_X) * K).toFixed(2) +
+            "," +
+            ((p.y - STAGE_Y) * K).toFixed(2) +
+            ")"
+        );
+      }
+
+      // pass B integrates the world across the open shutter. samples sit on a
+      // fixed grid spanning the WHOLE shutter and each carries 1/SAMPLES, so
+      // the streak keeps its final density while it is still growing — only
+      // its leading edge advances. the newest sample fades in over its own
+      // slice so the tip extends continuously rather than in steps.
+      const DT = SHUT / SAMPLES;
+      function paintSlotB(slot, m, w) {
+        const prog = clamp((w - m * W) / SHUT, 0, 1);
+        const key = m + ":" + prog.toFixed(5);
+        if (slot.key === key) return;
+        slot.key = key;
+        for (let j = 0; j < SAMPLES; j++) {
+          const c = slot.dots[j];
+          const weight = clamp((w - (m * W + j * DT)) / DT, 0, 1);
+          if (weight <= 0) {
+            c.setAttribute("opacity", "0");
+            continue;
+          }
+          const p = ballPos(m * W + (j + 0.5) * DT);
+          c.setAttribute("opacity", (weight / SAMPLES).toFixed(5));
+          c.setAttribute(
+            "transform",
+            "translate(" +
+              ((p.x - STAGE_X) * K).toFixed(2) +
+              "," +
+              ((p.y - STAGE_Y) * K).toFixed(2) +
+              ")"
+          );
+        }
+      }
+
+      function paintCommon(P, w, open) {
+        const p = ballPos(w);
+        P.ball.setAttribute("transform", "translate(" + p.x.toFixed(2) + "," + p.y.toFixed(2) + ")");
+        setEye(P, open);
+      }
+
+      function dressSlot(slot, exposed, glow) {
+        slot.box.setAttribute(
+          "stroke",
+          "rgba(238,244,251," + (0.17 + 0.17 * exposed).toFixed(3) + ")"
+        );
+        slot.glow.setAttribute("opacity", glow.toFixed(3));
+      }
+
+      // ── pass A: the shutter is an instant ───────────────────────
+      // the world advances only during the travel segment; the moment a frame
+      // reaches the gate it stops dead, the eye opens, the sample burns in.
+      function paintA(t) {
+        const s = t + A_SHIFT;
+        const k = Math.floor(s / T_CYC);
+        const tau = s - k * T_CYC;
+        const moving = tau < T_MOVE;
+        const w = W * (k + Math.min(tau / T_MOVE, 1));
+
+        const prog = moving ? 0 : (tau - T_MOVE) / T_HOLD;
+        // a blink: open, held, shut — all of it inside the frozen window
+        const open = moving ? 0 : Math.min(smooth(prog / 0.26), smooth((1 - prog) / 0.26));
+        const burn = moving ? 0 : smooth((prog - 0.24) / 0.26);
+        const gate = moving ? -1 : k + 1; // the frame sitting in the gate
+
+        paintCommon(A, w, open);
+
+        const base = Math.floor(w / W + 1e-6);
+        for (let i = 0; i < SLOTS; i++) {
+          const m = base - 3 + i;
+          const slot = A.slots[i];
+          placeSlot(slot, m, w / W);
+          const alpha = m < base ? 1 : m > base ? 0 : moving ? 1 : burn;
+          paintSlotA(slot, m, alpha);
+          dressSlot(slot, alpha, m === gate ? open : 0);
+        }
+      }
+
+      // ── pass B: the shutter is held open ────────────────────────
+      // the world never stops. the eye opens as a frame reaches the gate and
+      // stays open for half the interval; everything that moves in between
+      // is written into that frame.
+      function paintB(u) {
+        const w = W_START + u * (W / T_CYC);
+        const f = w / W;
+        const gate = Math.floor(f + 1e-9);
+        const r = (f - gate) / (SHUT / W); // 0..1 across the open shutter
+        const open = r <= 1 ? Math.min(smooth(r / 0.08), smooth((1 - r) / 0.08)) : 0;
+
+        paintCommon(B, w, open);
+
+        const scroll = scrollB(w);
+        for (let i = 0; i < SLOTS; i++) {
+          const m = gate - 3 + i;
+          const slot = B.slots[i];
+          placeSlot(slot, m, scroll);
+          paintSlotB(slot, m, w);
+          const exposed = w >= m * W ? 1 : 0;
+          dressSlot(slot, exposed, m === gate && r <= 1 ? open : 0);
+        }
+      }
+
+      // both passes are painted every frame: the cut between them can render
+      // either clip, and each is clamped to its own interval so the hidden
+      // one simply rests on its first or last state.
+      function paint(t) {
+        paintA(clamp(t, 0, PART));
+        paintB(clamp(t - PART, 0, PART));
+      }
+      paint(0); // seed frame 0 before the timeline exists
+
+      // ── timeline ────────────────────────────────────────────────
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      const drv = { t: 0 };
+      tl.to(drv, { t: DUR, duration: DUR, ease: "none", onUpdate: () => paint(drv.t) }, 0);
+      tl.seek(0);
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>
